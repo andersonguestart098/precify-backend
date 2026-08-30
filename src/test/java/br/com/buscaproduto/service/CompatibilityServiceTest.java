@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import br.com.buscaproduto.dto.RankedProduct;
 import br.com.buscaproduto.dto.SearchRequest;
@@ -54,6 +56,21 @@ class CompatibilityServiceTest {
         assertThat(result).extracting(item -> item.product().id()).containsExactly("1");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"G-LIGHT", "g light", "glight", "g lt", "ligt"})
+    void shouldFindBrandIgnoringSeparatorsAbbreviationsAndSmallTypos(String query) {
+        Product gLight = product("1", "G-LIGHT", "3000 K", "36 W", "IP65");
+        Product otherBrand = product("2", "AVANT", "3000 K", "36 W", "IP65");
+
+        SearchRequest request = new SearchRequest("Iluminação", query, List.of(
+                criterion("temperature", "3000 K", CriterionMode.REQUIRED, CriterionOperator.MINIMUM, 100)
+        ), true);
+
+        List<RankedProduct> result = service.rank(List.of(otherBrand, gLight), request);
+
+        assertThat(result).extracting(item -> item.product().id()).containsExactly("1");
+    }
+
     @Test
     void shouldHideAlternativesWhenDisabled() {
         Product incompatible = product("3", "3000 K", "40 W", "IP65");
@@ -69,7 +86,11 @@ class CompatibilityServiceTest {
     }
 
     private Product product(String id, String temperature, String power, String protection) {
-        return new Product(id, "Luminária " + id, "Marca", "Modelo", "Iluminação", "Luminária comercial", null, null,
+        return product(id, "Marca", temperature, power, protection);
+    }
+
+    private Product product(String id, String brand, String temperature, String power, String protection) {
+        return new Product(id, "Luminária " + id, brand, "Modelo", "Iluminação", "Luminária comercial", null, null,
                 Map.of("temperature", temperature, "power", power, "protection", protection),
                 new Product.Quote(BigDecimal.TEN, "Fornecedor", LocalDate.now(), "RS"), Instant.now(), Instant.now());
     }
