@@ -81,6 +81,7 @@ public class CompatibilityService {
 
         String name = normalize(product.name());
         String brandAndModel = normalize(product.brand() + " " + product.model());
+        String supplier = normalize(product.quote().supplier());
         String description = normalize(product.description());
         String attributes = normalize(product.attributes().entrySet().stream()
                 .map(entry -> entry.getKey() + " " + entry.getValue())
@@ -97,6 +98,7 @@ public class CompatibilityService {
             if (attributes.contains(term)) termScore += 20;
             if (name.contains(term)) termScore += 15;
             if (brandAndModel.contains(term)) termScore += 10;
+            if (supplier.contains(term)) termScore += 8;
             if (description.contains(term)) termScore += 5;
 
             if (termScore == 0) {
@@ -106,7 +108,9 @@ public class CompatibilityService {
             }
         }
 
-        int brandScore = fuzzyBrandScore(product.brand(), query);
+        int brandScore = Math.max(
+                fuzzyBrandScore(product.brand(), query),
+                fuzzyBrandScore(product.quote().supplier(), query));
         if (searchableTerms > 0 && allTermsMatched) return new TextMatch(true, score + brandScore);
         if (brandScore > 0) return new TextMatch(true, brandScore);
         return new TextMatch(false, 0);
