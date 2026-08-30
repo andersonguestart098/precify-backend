@@ -17,10 +17,12 @@ public class ProductImageMigrationConfig {
     CommandLineRunner completeExistingProductImages(ProductRepository repository) {
         return args -> {
             List<Product> productsToUpdate = repository.findAll().stream()
-                    .filter(product -> product.supplierLogoUrl() == null || product.supplierLogoUrl().isBlank())
+                    .filter(product -> product.imageUrl() == null
+                            && (product.supplierLogoUrl() == null
+                                    || DemoDataConfig.LEGACY_SUPPLIER_LOGO_URL.equals(product.supplierLogoUrl())))
                     .map(product -> new Product(
                             product.id(), product.name(), product.brand(), product.model(), product.category(),
-                            product.description(), product.imageUrl(), DemoDataConfig.DEFAULT_SUPPLIER_LOGO_URL,
+                            product.description(), "", "",
                             product.attributes(), product.quote(), product.createdAt(), product.updatedAt()))
                     .toList();
 

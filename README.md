@@ -56,7 +56,7 @@ mvn spring-boot:run
 
 Para usar o MongoDB Atlas, substitua `MONGODB_URI` pela connection string `mongodb+srv://...` em uma variável privada. Nunca publique usuário ou senha no Git. Com `APP_SEED_DEMO_DATA=true`, quatro luminárias são inseridas somente quando a coleção estiver vazia.
 
-Ao iniciar, uma migração idempotente completa o `supplierLogoUrl` dos produtos antigos que ainda não possuem esse campo. A URL da imagem do produto pode ser informada pelo cadastro do frontend.
+Ao iniciar, uma migração idempotente cria `imageUrl` e `supplierLogoUrl` vazios nos produtos antigos. Depois que URLs reais forem informadas, a migração não as sobrescreve nos próximos starts.
 
 Variáveis principais:
 
