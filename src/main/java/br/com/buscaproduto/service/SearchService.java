@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import br.com.buscaproduto.dto.PageResponse;
 import br.com.buscaproduto.dto.RankedProduct;
+import br.com.buscaproduto.dto.SearchPageResponse;
 import br.com.buscaproduto.dto.SearchRequest;
 import br.com.buscaproduto.model.Product;
 import br.com.buscaproduto.repository.ProductRepository;
@@ -27,7 +27,7 @@ public class SearchService {
         return compatibilityService.rank(candidates, request);
     }
 
-    public PageResponse<RankedProduct> search(SearchRequest request, int page, int size) {
-        return PageResponse.from(search(request), page, size);
+    public SearchPageResponse search(SearchRequest request, int page, int size) {
+        return SearchPageResponse.from(search(request), page, size);
     }
 }
