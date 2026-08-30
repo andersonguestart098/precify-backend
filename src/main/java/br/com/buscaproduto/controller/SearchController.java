@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.com.buscaproduto.dto.PageResponse;
 import br.com.buscaproduto.dto.RankedProduct;
+import br.com.buscaproduto.dto.SearchPageResponse;
 import br.com.buscaproduto.dto.SearchRequest;
 import br.com.buscaproduto.service.SearchService;
 import jakarta.validation.Valid;
@@ -33,7 +33,7 @@ public class SearchController {
     }
 
     @PostMapping("/paged")
-    public PageResponse<RankedProduct> searchPaged(
+    public SearchPageResponse searchPaged(
             @Valid @RequestBody SearchRequest request,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
