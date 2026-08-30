@@ -1,8 +1,8 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.dto;
 
 import java.util.List;
 
-import br.com.buscaproduto.product.Product;
+import br.com.buscaproduto.model.Product;
 
 public record RankedProduct(
         Product product,

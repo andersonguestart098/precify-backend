@@ -1,4 +1,4 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -10,10 +10,15 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import br.com.buscaproduto.product.Product;
+import br.com.buscaproduto.dto.RankedProduct;
+import br.com.buscaproduto.dto.SearchRequest;
+import br.com.buscaproduto.dto.TechnicalCriterion;
+import br.com.buscaproduto.enums.CriterionMode;
+import br.com.buscaproduto.enums.CriterionOperator;
+import br.com.buscaproduto.model.Product;
 
-class CompatibilityEngineTest {
-    private final CompatibilityEngine engine = new CompatibilityEngine();
+class CompatibilityServiceTest {
+    private final CompatibilityService service = new CompatibilityService();
 
     @Test
     void shouldKeepProductsAtOrAboveMinimumAndOrderByPreferences() {
@@ -27,7 +32,7 @@ class CompatibilityEngineTest {
                 criterion("protection", "IP65", CriterionMode.PREFERRED, CriterionOperator.EXACT, 30)
         ), true);
 
-        List<RankedProduct> result = engine.rank(List.of(partial, incompatible, exact), request);
+        List<RankedProduct> result = service.rank(List.of(partial, incompatible, exact), request);
 
         assertThat(result).extracting(item -> item.product().id()).containsExactly("1", "2", "3");
         assertThat(result.getFirst().compatible()).isTrue();
@@ -42,7 +47,7 @@ class CompatibilityEngineTest {
                 criterion("temperature", "4000 K", CriterionMode.REQUIRED, CriterionOperator.MINIMUM, 100)
         ), false);
 
-        assertThat(engine.rank(List.of(incompatible), request)).isEmpty();
+        assertThat(service.rank(List.of(incompatible), request)).isEmpty();
     }
 
     private TechnicalCriterion criterion(String key, String value, CriterionMode mode, CriterionOperator operator, int weight) {

@@ -4,6 +4,7 @@ spring:
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/busca_produto}
+      auto-index-creation: true
   jackson:
     default-property-inclusion: non_null
 
@@ -17,5 +18,6 @@ management:
         include: health,info
 
 app:
+  seed-demo-data: ${APP_SEED_DEMO_DATA:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

@@ -1,4 +1,4 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.dto;
 
 import java.util.List;
 

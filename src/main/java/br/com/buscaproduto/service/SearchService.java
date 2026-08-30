@@ -1,26 +1,28 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.service;
 
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import br.com.buscaproduto.product.Product;
-import br.com.buscaproduto.product.ProductRepository;
+import br.com.buscaproduto.dto.RankedProduct;
+import br.com.buscaproduto.dto.SearchRequest;
+import br.com.buscaproduto.model.Product;
+import br.com.buscaproduto.repository.ProductRepository;
 
 @Service
 public class SearchService {
     private final ProductRepository productRepository;
-    private final CompatibilityEngine compatibilityEngine;
+    private final CompatibilityService compatibilityService;
 
-    public SearchService(ProductRepository productRepository, CompatibilityEngine compatibilityEngine) {
+    public SearchService(ProductRepository productRepository, CompatibilityService compatibilityService) {
         this.productRepository = productRepository;
-        this.compatibilityEngine = compatibilityEngine;
+        this.compatibilityService = compatibilityService;
     }
 
     public List<RankedProduct> search(SearchRequest request) {
         List<Product> candidates = request.category() == null || request.category().isBlank()
                 ? productRepository.findAll()
                 : productRepository.findAllByCategoryIgnoreCase(request.category());
-        return compatibilityEngine.rank(candidates, request);
+        return compatibilityService.rank(candidates, request);
     }
 }

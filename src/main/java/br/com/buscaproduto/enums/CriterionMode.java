@@ -1,4 +1,4 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.enums;
 
 public enum CriterionMode {
     REQUIRED,

@@ -1,4 +1,4 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.service;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -8,12 +8,18 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-import br.com.buscaproduto.product.Product;
+import br.com.buscaproduto.dto.CriterionComparison;
+import br.com.buscaproduto.dto.RankedProduct;
+import br.com.buscaproduto.dto.SearchRequest;
+import br.com.buscaproduto.dto.TechnicalCriterion;
+import br.com.buscaproduto.enums.CriterionMode;
+import br.com.buscaproduto.enums.CriterionOperator;
+import br.com.buscaproduto.model.Product;
 
-@Component
-public class CompatibilityEngine {
+@Service
+public class CompatibilityService {
     private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+(?:[.,]\\d+)?");
 
     public List<RankedProduct> rank(List<Product> products, SearchRequest request) {
@@ -61,9 +67,7 @@ public class CompatibilityEngine {
         Double actualNumber = extractNumber(actual);
         Double expectedNumber = extractNumber(expected);
         if (actualNumber == null || expectedNumber == null) return false;
-        return operator == CriterionOperator.MINIMUM
-                ? actualNumber >= expectedNumber
-                : actualNumber <= expectedNumber;
+        return operator == CriterionOperator.MINIMUM ? actualNumber >= expectedNumber : actualNumber <= expectedNumber;
     }
 
     private int textScore(Product product, String query) {
@@ -94,5 +98,6 @@ public class CompatibilityEngine {
         return matcher.find() ? Double.valueOf(matcher.group().replace(',', '.')) : null;
     }
 
-    private record Evaluation(RankedProduct ranked, int textScore) {}
+    private record Evaluation(RankedProduct ranked, int textScore) {
+    }
 }

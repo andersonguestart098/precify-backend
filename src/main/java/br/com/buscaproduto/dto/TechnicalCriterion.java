@@ -1,5 +1,7 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.dto;
 
+import br.com.buscaproduto.enums.CriterionMode;
+import br.com.buscaproduto.enums.CriterionOperator;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

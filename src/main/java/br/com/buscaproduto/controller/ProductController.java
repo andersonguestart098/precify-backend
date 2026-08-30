@@ -1,4 +1,4 @@
-package br.com.buscaproduto.api;
+package br.com.buscaproduto.controller;
 
 import java.net.URI;
 import java.util.List;
@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.com.buscaproduto.product.Product;
-import br.com.buscaproduto.product.ProductService;
+import br.com.buscaproduto.model.Product;
+import br.com.buscaproduto.service.ProductService;
 import jakarta.validation.Valid;
 
 @RestController

@@ -1,4 +1,7 @@
-package br.com.buscaproduto.search;
+package br.com.buscaproduto.dto;
+
+import br.com.buscaproduto.enums.CriterionMode;
+import br.com.buscaproduto.enums.CriterionOperator;
 
 public record CriterionComparison(
         String key,

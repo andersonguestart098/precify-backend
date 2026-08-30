@@ -1,9 +1,13 @@
-package br.com.buscaproduto.product;
+package br.com.buscaproduto.service;
 
 import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+
+import br.com.buscaproduto.exception.ProductNotFoundException;
+import br.com.buscaproduto.model.Product;
+import br.com.buscaproduto.repository.ProductRepository;
 
 @Service
 public class ProductService {
