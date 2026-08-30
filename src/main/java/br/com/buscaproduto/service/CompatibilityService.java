@@ -106,8 +106,8 @@ public class CompatibilityService {
         return Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toLowerCase(Locale.forLanguageTag("pt-BR"))
-                .replaceAll("(?<=\\d)\\s+(?=[a-z])", "")
-                .replaceAll("(?<=[a-z])\\s+(?=\\d)", "")
+                .replaceAll("(?<=\\d)\\s+(?=(k|w|v|mm|cm|m|kg|lm)\\b)", "")
+                .replaceAll("\\b(ip|irc)\\s+(?=\\d)", "$1")
                 .replaceAll("\\s+", " ")
                 .trim();
     }
