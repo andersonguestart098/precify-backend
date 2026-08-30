@@ -41,6 +41,20 @@ class CompatibilityServiceTest {
     }
 
     @Test
+    void shouldFindTechnicalAttributeIgnoringSpaceBeforeUnit() {
+        Product exact = product("1", "4000 K", "40 W", "IP65");
+        Product otherTemperature = product("2", "5000 K", "40 W", "IP65");
+
+        SearchRequest request = new SearchRequest("Iluminação", "4000k", List.of(
+                criterion("temperature", "4000 K", CriterionMode.REQUIRED, CriterionOperator.MINIMUM, 100)
+        ), true);
+
+        List<RankedProduct> result = service.rank(List.of(otherTemperature, exact), request);
+
+        assertThat(result).extracting(item -> item.product().id()).containsExactly("1");
+    }
+
+    @Test
     void shouldHideAlternativesWhenDisabled() {
         Product incompatible = product("3", "3000 K", "40 W", "IP65");
         SearchRequest request = new SearchRequest("Iluminação", "", List.of(
