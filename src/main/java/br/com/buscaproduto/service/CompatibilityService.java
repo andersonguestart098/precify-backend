@@ -87,9 +87,11 @@ public class CompatibilityService {
                 .collect(Collectors.joining(" ")));
 
         int score = 0;
+        int searchableTerms = 0;
         boolean allTermsMatched = true;
         for (String term : normalize(query).split(" ")) {
             if (term.length() < 2) continue;
+            searchableTerms++;
 
             int termScore = 0;
             if (attributes.contains(term)) termScore += 20;
@@ -105,7 +107,7 @@ public class CompatibilityService {
         }
 
         int brandScore = fuzzyBrandScore(product.brand(), query);
-        if (allTermsMatched) return new TextMatch(true, score + brandScore);
+        if (searchableTerms > 0 && allTermsMatched) return new TextMatch(true, score + brandScore);
         if (brandScore > 0) return new TextMatch(true, brandScore);
         return new TextMatch(false, 0);
     }
