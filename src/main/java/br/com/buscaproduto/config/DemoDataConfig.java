@@ -10,13 +10,18 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 
 import br.com.buscaproduto.model.Product;
 import br.com.buscaproduto.repository.ProductRepository;
 
 @Configuration
 public class DemoDataConfig {
+    public static final String DEFAULT_SUPPLIER_LOGO_URL =
+            "https://res.cloudinary.com/dckct1goo/image/upload/v1788072224/logoLumicenter_kilbq0.png";
+
     @Bean
+    @Order(1)
     @ConditionalOnProperty(name = "app.seed-demo-data", havingValue = "true")
     CommandLineRunner seedDemoProducts(ProductRepository repository) {
         return args -> {
@@ -46,7 +51,7 @@ public class DemoDataConfig {
 
     private Product product(String id, String name, String brand, String model, String description,
             Map<String, String> attributes, String price, String supplier, LocalDate quoteDate, Instant now) {
-        return new Product(id, name, brand, model, "Iluminação", description, attributes,
+        return new Product(id, name, brand, model, "Iluminação", description, null, DEFAULT_SUPPLIER_LOGO_URL, attributes,
                 new Product.Quote(new BigDecimal(price), supplier, quoteDate, "RS"), now, now);
     }
 }

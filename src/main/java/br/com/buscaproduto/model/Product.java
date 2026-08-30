@@ -24,6 +24,8 @@ public record Product(
         @NotBlank @TextIndexed(weight = 3) String model,
         @NotBlank @Indexed @TextIndexed(weight = 2) String category,
         @NotBlank @TextIndexed String description,
+        String imageUrl,
+        String supplierLogoUrl,
         @NotEmpty Map<String, @NotBlank String> attributes,
         @NotNull @Valid Quote quote,
         Instant createdAt,

@@ -55,7 +55,7 @@ class CompatibilityServiceTest {
     }
 
     private Product product(String id, String temperature, String power, String protection) {
-        return new Product(id, "Luminária " + id, "Marca", "Modelo", "Iluminação", "Luminária comercial",
+        return new Product(id, "Luminária " + id, "Marca", "Modelo", "Iluminação", "Luminária comercial", null, null,
                 Map.of("temperature", temperature, "power", power, "protection", protection),
                 new Product.Quote(BigDecimal.TEN, "Fornecedor", LocalDate.now(), "RS"), Instant.now(), Instant.now());
     }

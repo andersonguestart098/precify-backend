@@ -2,6 +2,8 @@
 
 API principal do piloto de busca técnica. Os produtos são armazenados no MongoDB com atributos flexíveis por categoria; o Java valida os critérios, elimina incompatíveis e calcula a pontuação explicável.
 
+Cada produto também pode armazenar `imageUrl` e `supplierLogoUrl`. Os arquivos permanecem no Cloudinary e apenas suas URLs são persistidas no MongoDB.
+
 ## Stack
 
 - Java 21
@@ -53,6 +55,8 @@ mvn spring-boot:run
 ```
 
 Para usar o MongoDB Atlas, substitua `MONGODB_URI` pela connection string `mongodb+srv://...` em uma variável privada. Nunca publique usuário ou senha no Git. Com `APP_SEED_DEMO_DATA=true`, quatro luminárias são inseridas somente quando a coleção estiver vazia.
+
+Ao iniciar, uma migração idempotente completa o `supplierLogoUrl` dos produtos antigos que ainda não possuem esse campo. A URL da imagem do produto pode ser informada pelo cadastro do frontend.
 
 Variáveis principais:
 
