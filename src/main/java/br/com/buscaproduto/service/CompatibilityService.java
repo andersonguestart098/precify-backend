@@ -87,6 +87,7 @@ public class CompatibilityService {
                 .collect(Collectors.joining(" ")));
 
         int score = 0;
+        boolean allTermsMatched = true;
         for (String term : normalize(query).split(" ")) {
             if (term.length() < 2) continue;
 
@@ -96,10 +97,68 @@ public class CompatibilityService {
             if (brandAndModel.contains(term)) termScore += 10;
             if (description.contains(term)) termScore += 5;
 
-            if (termScore == 0) return new TextMatch(false, 0);
-            score += termScore;
+            if (termScore == 0) {
+                allTermsMatched = false;
+            } else {
+                score += termScore;
+            }
         }
-        return new TextMatch(true, score);
+
+        int brandScore = fuzzyBrandScore(product.brand(), query);
+        if (allTermsMatched) return new TextMatch(true, score + brandScore);
+        if (brandScore > 0) return new TextMatch(true, brandScore);
+        return new TextMatch(false, 0);
+    }
+
+    private int fuzzyBrandScore(String brand, String query) {
+        String normalizedBrand = compact(brand);
+        String normalizedQuery = compact(query);
+        if (normalizedQuery.length() < 3 || normalizedBrand.isBlank()) return 0;
+
+        if (normalizedBrand.equals(normalizedQuery)) return 30;
+        if (normalizedBrand.contains(normalizedQuery) || normalizedQuery.contains(normalizedBrand)) return 20;
+
+        int distance = levenshteinDistance(normalizedBrand, normalizedQuery);
+        if (Math.max(normalizedBrand.length(), normalizedQuery.length()) >= 4 && distance <= 2) return 12;
+
+        boolean meaningfulAbbreviation = normalizedQuery.length() * 2 >= normalizedBrand.length();
+        if (meaningfulAbbreviation && isSubsequence(normalizedQuery, normalizedBrand)) return 8;
+        return 0;
+    }
+
+    private String compact(String value) {
+        return normalize(value).replaceAll("[^a-z0-9]", "");
+    }
+
+    private boolean isSubsequence(String query, String candidate) {
+        int queryIndex = 0;
+        for (int candidateIndex = 0;
+                candidateIndex < candidate.length() && queryIndex < query.length();
+                candidateIndex++) {
+            if (query.charAt(queryIndex) == candidate.charAt(candidateIndex)) queryIndex++;
+        }
+        return queryIndex == query.length();
+    }
+
+    private int levenshteinDistance(String left, String right) {
+        int[] previous = new int[right.length() + 1];
+        int[] current = new int[right.length() + 1];
+
+        for (int column = 0; column <= right.length(); column++) previous[column] = column;
+
+        for (int row = 1; row <= left.length(); row++) {
+            current[0] = row;
+            for (int column = 1; column <= right.length(); column++) {
+                int substitutionCost = left.charAt(row - 1) == right.charAt(column - 1) ? 0 : 1;
+                current[column] = Math.min(
+                        Math.min(current[column - 1] + 1, previous[column] + 1),
+                        previous[column - 1] + substitutionCost);
+            }
+            int[] temporary = previous;
+            previous = current;
+            current = temporary;
+        }
+        return previous[right.length()];
     }
 
     private String normalize(String value) {
