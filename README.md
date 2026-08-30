@@ -70,7 +70,8 @@ Variáveis principais:
 - `GET /api/products`
 - `GET /api/products/{id}`
 - `POST /api/products`
-- `POST /api/search`
+- `POST /api/search` (legado, retorna lista)
+- `POST /api/search/paged?page=0&size=10`
 - `GET /actuator/health`
 
 ## Exemplo de busca
@@ -100,6 +101,29 @@ Variáveis principais:
   ]
 }
 ```
+
+## Busca paginada
+
+Use `POST /api/search/paged?page=0&size=10` com o mesmo JSON da busca. `page` começa em zero, `size` aceita de 1 a 100 e o ranking completo é calculado antes do recorte da página.
+
+Resposta:
+
+```json
+{
+  "content": [],
+  "page": 0,
+  "size": 10,
+  "totalElements": 0,
+  "totalPages": 0,
+  "numberOfElements": 0,
+  "first": true,
+  "last": true,
+  "hasNext": false,
+  "hasPrevious": false
+}
+```
+
+O endpoint não paginado foi mantido temporariamente para não quebrar o frontend atual.
 
 ## Fase futura com IA
 
