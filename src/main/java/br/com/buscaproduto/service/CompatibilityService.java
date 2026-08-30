@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -27,7 +28,8 @@ public class CompatibilityService {
 
         return products.stream()
                 .map(product -> evaluate(product, request.criteria(), totalWeight, request.query()))
-                .filter(result -> result.ranked().compatible() || request.includeAlternatives())
+                .filter(result -> result.textMatched()
+                        && (result.ranked().compatible() || request.includeAlternatives()))
                 .sorted(Comparator
                         .comparing((Evaluation result) -> result.ranked().compatible()).reversed()
                         .thenComparing(Comparator.comparingInt((Evaluation result) -> result.ranked().compatibility()).reversed())
@@ -57,7 +59,11 @@ public class CompatibilityService {
 
         boolean compatible = differences.stream().noneMatch(item -> item.mode() == CriterionMode.REQUIRED);
         int compatibility = totalWeight == 0 ? 0 : Math.round(matchedWeight * 100f / totalWeight);
-        return new Evaluation(new RankedProduct(product, compatible, compatibility, matches, differences), textScore(product, query));
+        TextMatch textMatch = textMatch(product, query);
+        return new Evaluation(
+                new RankedProduct(product, compatible, compatibility, matches, differences),
+                textMatch.score(),
+                textMatch.matched());
     }
 
     private boolean matches(String actual, String expected, CriterionOperator operator) {
@@ -70,25 +76,38 @@ public class CompatibilityService {
         return operator == CriterionOperator.MINIMUM ? actualNumber >= expectedNumber : actualNumber <= expectedNumber;
     }
 
-    private int textScore(Product product, String query) {
-        if (query == null || query.isBlank()) return 0;
+    private TextMatch textMatch(Product product, String query) {
+        if (query == null || query.isBlank()) return new TextMatch(true, 0);
+
         String name = normalize(product.name());
         String brandAndModel = normalize(product.brand() + " " + product.model());
         String description = normalize(product.description());
+        String attributes = normalize(product.attributes().entrySet().stream()
+                .map(entry -> entry.getKey() + " " + entry.getValue())
+                .collect(Collectors.joining(" ")));
+
         int score = 0;
         for (String term : normalize(query).split(" ")) {
-            if (term.length() < 3) continue;
-            if (name.contains(term)) score += 4;
-            if (brandAndModel.contains(term)) score += 3;
-            if (description.contains(term)) score += 1;
+            if (term.length() < 2) continue;
+
+            int termScore = 0;
+            if (attributes.contains(term)) termScore += 20;
+            if (name.contains(term)) termScore += 15;
+            if (brandAndModel.contains(term)) termScore += 10;
+            if (description.contains(term)) termScore += 5;
+
+            if (termScore == 0) return new TextMatch(false, 0);
+            score += termScore;
         }
-        return score;
+        return new TextMatch(true, score);
     }
 
     private String normalize(String value) {
-        return Normalizer.normalize(value, Normalizer.Form.NFD)
+        return Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toLowerCase(Locale.forLanguageTag("pt-BR"))
+                .replaceAll("(?<=\\d)\\s+(?=[a-z])", "")
+                .replaceAll("(?<=[a-z])\\s+(?=\\d)", "")
                 .replaceAll("\\s+", " ")
                 .trim();
     }
@@ -98,6 +117,9 @@ public class CompatibilityService {
         return matcher.find() ? Double.valueOf(matcher.group().replace(',', '.')) : null;
     }
 
-    private record Evaluation(RankedProduct ranked, int textScore) {
+    private record TextMatch(boolean matched, int score) {
+    }
+
+    private record Evaluation(RankedProduct ranked, int textScore, boolean textMatched) {
     }
 }
