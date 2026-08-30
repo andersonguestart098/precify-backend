@@ -114,6 +114,8 @@ Resposta:
   "page": 0,
   "size": 10,
   "totalElements": 0,
+  "totalCompatibleElements": 0,
+  "totalAlternativeElements": 0,
   "totalPages": 0,
   "numberOfElements": 0,
   "first": true,
