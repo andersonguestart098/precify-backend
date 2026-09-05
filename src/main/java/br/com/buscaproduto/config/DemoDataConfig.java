@@ -29,29 +29,31 @@ public class DemoDataConfig {
 
             Instant now = Instant.now();
             repository.saveAll(List.of(
-                    product("lum-001", "Luminária Linear Pro 40", "Lumicenter", "LLP-40-S",
-                            "Luminária LED linear branca para instalação de sobrepor.",
-                            Map.of("temperature", "5000 K", "power", "40 W", "installation", "Sobrepor", "protection", "IP65", "cri", "IRC 80"),
-                            "349.90", "Lumicenter Sul", LocalDate.of(2026, 8, 28), now),
-                    product("lum-002", "Luminária Técnica Line 42", "Stella", "STL-42",
-                            "Linha técnica de alta eficiência para ambientes comerciais.",
-                            Map.of("temperature", "4000 K", "power", "42 W", "installation", "Sobrepor", "protection", "IP54", "cri", "IRC 80"),
-                            "389.50", "Distribuidora Técnica", LocalDate.of(2026, 8, 25), now),
-                    product("lum-003", "Painel LED Comercial 40", "Avant", "PLC-40",
-                            "Painel LED de embutir para escritórios e áreas comerciais.",
-                            Map.of("temperature", "4000 K", "power", "40 W", "installation", "Embutir", "protection", "IP20", "cri", "IRC 80"),
-                            "219.90", "Avant Comercial", LocalDate.of(2026, 8, 21), now),
-                    product("lum-004", "Luminária Hermética Strong 36", "G-Light", "HST-36",
-                            "Luminária vedada para áreas externas e ambientes agressivos.",
-                            Map.of("temperature", "3000 K", "power", "36 W", "installation", "Sobrepor", "protection", "IP65", "cri", "IRC 80"),
-                            "298.00", "G-Light RS", LocalDate.of(2026, 8, 19), now)
+                    product("areia-001", "Areia fina jazida", "Base Demo", "AFJ-M3",
+                            "Areia fina para aplicações gerais.", "Agregados Naturais", "Aréias", "Areia fina", "M³",
+                            Map.of(), "92.00", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now),
+                    product("areia-002", "Areia fina jazida", "Base Demo", "AFJ-KG",
+                            "Areia fina para aplicações gerais.", "Agregados Naturais", "Aréias", "Areia fina", "KG",
+                            Map.of(), "92.00", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now),
+                    product("areia-003", "Areia fina varejo", "Base Demo", "AFV-M3",
+                            "Areia fina para venda no varejo.", "Agregados Naturais", "Aréias", "Areia fina", "M³",
+                            Map.of(), "175.00", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now),
+                    product("areia-004", "Areia grossa jazida", "Base Demo", "AGJ-M3",
+                            "Areia grossa para aplicações gerais.", "Agregados Naturais", "Aréias", "Areia grossa", "M³",
+                            Map.of(), "79.01", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now),
+                    product("areia-005", "Areia grossa jazida", "Base Demo", "AGJ-KG",
+                            "Areia grossa para aplicações gerais.", "Agregados Naturais", "Aréias", "Areia grossa", "KG",
+                            Map.of(), "79.01", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now)
             ));
         };
     }
 
     private Product product(String id, String name, String brand, String model, String description,
-            Map<String, String> attributes, String price, String supplier, LocalDate quoteDate, Instant now) {
-        return new Product(id, name, brand, model, "Iluminação", description, "", "", attributes,
-                new Product.Quote(new BigDecimal(price), supplier, quoteDate, "RS"), now, now);
+            String segment, String family, String material, String variation,
+            Map<String, String> attributes, String price, String supplier, LocalDate quoteDate,
+            String region, Instant now) {
+        return new Product(id, name, brand, model, family, segment, material, variation,
+                description, "", "", attributes,
+                new Product.Quote(new BigDecimal(price), supplier, quoteDate, region), now, now);
     }
 }

@@ -58,7 +58,7 @@ public class CompatibilityService {
         }
 
         boolean compatible = differences.stream().noneMatch(item -> item.mode() == CriterionMode.REQUIRED);
-        int compatibility = totalWeight == 0 ? 0 : Math.round(matchedWeight * 100f / totalWeight);
+        int compatibility = totalWeight == 0 ? 100 : Math.round(matchedWeight * 100f / totalWeight);
         TextMatch textMatch = textMatch(product, query);
         return new Evaluation(
                 new RankedProduct(product, compatible, compatibility, matches, differences),
