@@ -25,7 +25,7 @@ public record Product(
         @NotBlank @Indexed @TextIndexed(weight = 2) String category,
         @NotBlank @Indexed @TextIndexed(weight = 2) String segment,
         @NotBlank @Indexed @TextIndexed(weight = 2) String material,
-        @NotBlank @Indexed @TextIndexed(weight = 2) String variation,
+        @Indexed @TextIndexed(weight = 2) String variation,
         @NotBlank @TextIndexed String description,
         String imageUrl,
         String supplierLogoUrl,
