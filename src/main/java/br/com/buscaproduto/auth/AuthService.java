@@ -21,20 +21,42 @@ public class AuthService {
         this.users = users; this.passwords = passwords; this.encoder = encoder;
         this.dummyHash = passwords.encode(java.util.UUID.randomUUID().toString());
     }
-    public record UserView(String id, String name, String email, AppUser.Role role) {}
+    public record UserView(String id, String name, String email, AppUser.Role role, String avatarUrl) {}
     public record Session(String accessToken, Instant expiresAt, UserView user) {}
     public static String email(String email) { return email.trim().toLowerCase(Locale.ROOT); }
-    public UserView view(AppUser u) { return new UserView(u.id(), u.name(), u.id(), u.role()); }
+    public UserView view(AppUser u) { return new UserView(u.id(), u.name(), u.id(), u.role(), u.avatarUrl() == null ? "" : u.avatarUrl()); }
     public UserView me(String id) {
         return view(users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED)));
     }
     public UserView createUser(String name, String email, String password, AppUser.Role role) {
+        return createUser(name, email, password, role, "");
+    }
+    public UserView createUser(String name, String email, String password, AppUser.Role role, String avatarUrl) {
+        String avatar = validateAvatar(avatarUrl);
         validatePassword(password);
         try {
-            return view(users.insert(new AppUser(email(email), name.trim(), passwords.encode(password), role, Instant.now())));
+            return view(users.insert(new AppUser(email(email), name.trim(), passwords.encode(password), role, Instant.now(), avatar)));
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Não foi possível cadastrar este e-mail.");
         }
+    }
+    public static String validateAvatar(String value) {
+        if (value == null || value.isBlank()) return "";
+        String url = value.trim();
+        try {
+            var uri = new java.net.URI(url);
+            if (url.length() <= 2048 && "https".equalsIgnoreCase(uri.getScheme())
+                && "res.cloudinary.com".equalsIgnoreCase(uri.getHost())
+                && uri.getRawUserInfo() == null && uri.getPort() == -1
+                && uri.getPath() != null && uri.getPath().matches("/[^/]+/image/upload/.+"))
+                return url;
+        } catch (java.net.URISyntaxException ignored) {}
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cole a URL HTTPS da imagem enviada ao Cloudinary.");
+    }
+    public UserView updateAvatar(String id, String avatarUrl) {
+        String avatar = validateAvatar(avatarUrl);
+        var u = users.findById(email(id)).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return view(users.save(new AppUser(u.id(), u.name(), u.passwordHash(), u.role(), u.createdAt(), avatar)));
     }
     public List<UserView> listUsers() { return users.findAll().stream().map(this::view).toList(); }
     public Session login(String email, String password) {
