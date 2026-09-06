@@ -28,7 +28,7 @@ public class DemoDataConfig {
 
             Instant now = Instant.now();
             repository.saveAll(List.of(
-                    product("lum-001", "Luminária Linear Pro 40", "Lumicenter", "LLP-40-S", "Luminária LED linear branca para instalação de sobrepor.", "Eletroeletrônicos e Automação", "Iluminação", "Fitas LED (12v/24v/110v), drivers/fontes de alimentação para LED, lâmpadas LED, luminárias spot, painéis de LED (plafons)", null, Map.of("temperature", "5000 K", "power", "40 W"), "349.90", "Lumicenter Sul", LocalDate.of(2026, 8, 28), "RS", now),
+                    product("lum-001", "Luminária Linear Pro 40", "Lumicenter", "LLP-40-S", "Luminária LED linear branca para instalação de sobrepor.", "Eletroeletrônicos e Automação", "Iluminação LED", "Fitas LED (12v/24v/110v), drivers/fontes de alimentação para LED, lâmpadas LED, luminárias spot, painéis de LED (plafons)", null, Map.of("temperature", "5000 K", "power", "40 W"), "349.90", "Lumicenter Sul", LocalDate.of(2026, 8, 28), "RS", now),
                     product("areia-001", "Areia fina jazida", "Base Demo", "AFJ-M3", "Areia fina para aplicações gerais.", "Agregados Naturais", "Aréias", "Areia fina", "M³", Map.of("unidade", "M³"), "92.00", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now),
                     product("areia-002", "Areia fina jazida", "Base Demo", "AFJ-KG", "Areia fina para aplicações gerais.", "Agregados Naturais", "Aréias", "Areia fina", "KG", Map.of("unidade", "KG"), "92.00", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now),
                     product("areia-003", "Areia fina varejo", "Base Demo", "AFV-M3", "Areia fina para venda no varejo.", "Agregados Naturais", "Aréias", "Areia fina", "M³", Map.of("unidade", "M³"), "175.00", "Fornecedor Demo", LocalDate.of(2026, 8, 28), "RS", now),
@@ -42,8 +42,9 @@ public class DemoDataConfig {
             String segment, String family, String material, String variation,
             Map<String, String> attributes, String price, String supplier, LocalDate quoteDate,
             String region, Instant now) {
-        return new Product(id, name, brand, model, family, segment, material, variation,
+        Product.Quote quote = new Product.Quote(new BigDecimal(price), supplier, quoteDate, region);
+        return new Product(id, name, brand, model, family, segment, material,
                 description, "", "", attributes,
-                new Product.Quote(new BigDecimal(price), supplier, quoteDate, region), now, now);
+                List.of(new Product.Variation(variation, quote)), now, now);
     }
 }

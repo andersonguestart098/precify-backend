@@ -29,8 +29,9 @@ public class ProductService {
         Instant now = Instant.now();
         Product prepared = new Product(
                 product.id(), product.name(), product.brand(), product.model(), product.category(),
+                product.segment(), product.material(),
                 product.description(), product.imageUrl(), product.supplierLogoUrl(),
-                product.attributes(), product.quote(),
+                product.attributes(), product.variations(),
                 product.createdAt() == null ? now : product.createdAt(), now);
         return repository.save(prepared);
     }

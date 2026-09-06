@@ -54,9 +54,12 @@ public class SearchService {
         return product -> criteria.stream().allMatch(criterion -> switch (criterion.key()) {
             case "segment" -> isBlank(criterion.value()) || equalsIgnoreCase(product.segment(), criterion.value());
             case "material" -> isBlank(criterion.value()) || equalsIgnoreCase(product.material(), criterion.value());
-            case "variation" -> isBlank(criterion.value()) || equalsIgnoreCase(product.variation(), criterion.value());
-            case "state" -> isBlank(criterion.value()) || equalsIgnoreCase(product.quote().region(), criterion.value());
-            case "price" -> isBlank(criterion.value()) || matchesPriceBand(product.quote().value(), criterion.value());
+            case "variation" -> isBlank(criterion.value()) || product.variations().stream()
+                    .anyMatch(variation -> equalsIgnoreCase(variation.label(), criterion.value()));
+            case "state" -> isBlank(criterion.value()) || product.variations().stream()
+                    .anyMatch(variation -> equalsIgnoreCase(variation.quote().region(), criterion.value()));
+            case "price" -> isBlank(criterion.value()) || product.variations().stream()
+                    .anyMatch(variation -> matchesPriceBand(variation.quote().value(), criterion.value()));
             default -> true;
         });
     }

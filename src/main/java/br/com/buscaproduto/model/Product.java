@@ -3,6 +3,7 @@ package br.com.buscaproduto.model;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.annotation.Id;
@@ -25,14 +26,18 @@ public record Product(
         @NotBlank @Indexed @TextIndexed(weight = 2) String category,
         @NotBlank @Indexed @TextIndexed(weight = 2) String segment,
         @NotBlank @Indexed @TextIndexed(weight = 2) String material,
-        @Indexed @TextIndexed(weight = 2) String variation,
         @NotBlank @TextIndexed String description,
         String imageUrl,
         String supplierLogoUrl,
         @NotEmpty Map<String, @NotBlank String> attributes,
-        @NotNull @Valid Quote quote,
+        @NotEmpty @Valid List<Variation> variations,
         Instant createdAt,
         Instant updatedAt) {
+
+    public record Variation(
+            @Indexed @TextIndexed(weight = 2) String label,
+            @NotNull @Valid Quote quote) {
+    }
 
     public record Quote(
             @NotNull @PositiveOrZero BigDecimal value,
