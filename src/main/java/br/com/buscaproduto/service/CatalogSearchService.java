@@ -20,6 +20,10 @@ public class CatalogSearchService {
     }
 
     public CatalogSearchPage search(SearchRequest request, int page, int size) {
+        return search(request, page, size, null);
+    }
+
+    public CatalogSearchPage search(SearchRequest request, int page, int size, Set<String> allowedCodes) {
         var materials = catalog.findAll();
         Map<String, List<CatalogMaterial>> byNames = materials.stream().collect(Collectors.groupingBy(
                 m -> hierarchy(m.segmentName(), m.familyName(), m.materialName())));
@@ -47,6 +51,7 @@ public class CatalogSearchService {
         boolean quoteFilter = filters.containsKey("state") || price != null;
         List<Result> results = new ArrayList<>();
         for (CatalogMaterial material : materials) {
+            if (allowedCodes != null && !allowedCodes.contains(material.materialCode())) continue;
             if (!sameOrEmpty(request.familyCode(), material.familyCode()) ||
                     !sameOrEmpty(filters.get("segmentCode"), material.segmentCode()) ||
                     !sameOrEmpty(filters.get("materialCode"), material.materialCode())) continue;
@@ -76,12 +81,22 @@ public class CatalogSearchService {
             offers.sort(Comparator.comparing(o -> o.quote().value()));
             results.add(new Result(material, List.copyOf(offers)));
         }
-        results.sort(Comparator.comparing(r -> r.material().materialCode(), CatalogSearchService::compareCodes));
+        results.sort(Comparator.comparingInt(CatalogSearchService::completeness).reversed()
+                .thenComparing(r -> r.material().materialCode(), CatalogSearchService::compareCodes));
         long offset = (long) page * size;
         int from = (int) Math.min(offset, results.size());
         int to = (int) Math.min(offset + size, results.size());
         return new CatalogSearchPage(List.copyOf(results.subList(from, to)), page, size, results.size(),
                 (results.size() + size - 1) / size);
+    }
+
+    static int completeness(Result result) {
+        int score = result.offers().isEmpty() ? 0 : 100;
+        score += result.offers().stream().mapToInt(o ->
+                (!blank(o.imageUrl()) ? 20 : 0) + (!blank(o.supplierLogoUrl()) ? 10 : 0)
+                + (!blank(o.label()) ? 5 : 0) + (!blank(o.brand()) ? 3 : 0)).max().orElse(0);
+        score += Math.min(10, result.material().variations().stream().filter(v -> !v.options().isEmpty()).count());
+        return score;
     }
 
     private static int compareCodes(String a, String b) {

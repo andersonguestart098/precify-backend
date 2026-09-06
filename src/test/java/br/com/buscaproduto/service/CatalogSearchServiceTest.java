@@ -70,4 +70,15 @@ class CatalogSearchServiceTest {
         assertThat(service.search(request, Integer.MAX_VALUE, 100).content()).isEmpty();
         assertThat(service.search(new SearchRequest("99", "", List.of(), false), 0, 10).content()).isEmpty();
     }
+
+    @Test void prioritizesOffersBeforeCodeAndAppliesFavoritesBeforePagination() {
+        var other = new CatalogMaterial("1.1.2", "1", "Agregados", "1.1", "Areias",
+                "Areia média", "EM_REVISÃO", "", material.variations());
+        when(catalog.findAll()).thenReturn(List.of(material, other));
+        when(products.findAll()).thenReturn(List.of(product(List.of(quote("RS", "92", null)), "1.1.2")));
+        assertThat(service.search(request(), 0, 1).content().getFirst().material().materialCode()).isEqualTo("1.1.2");
+        var onlyFavorite = service.search(request(), 0, 1, java.util.Set.of("1.1.1"));
+        assertThat(onlyFavorite.totalElements()).isEqualTo(1);
+        assertThat(onlyFavorite.content().getFirst().material().materialCode()).isEqualTo("1.1.1");
+    }
 }
