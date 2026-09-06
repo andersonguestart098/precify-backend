@@ -81,4 +81,37 @@ class CatalogSearchServiceTest {
         assertThat(onlyFavorite.totalElements()).isEqualTo(1);
         assertThat(onlyFavorite.content().getFirst().material().materialCode()).isEqualTo("1.1.1");
     }
+
+    @Test void photoAndVariationsRankAheadOfQuoteOnlyBeforePagination() {
+        var complete = new CatalogMaterial("1.1.9", "1", "Agregados", "1.1", "Areias",
+                "Areia com foto", "EM_REVISÃO", "", material.variations());
+        when(catalog.findAll()).thenReturn(List.of(material, complete));
+        var pictured = new Product("photo", "Areia com foto", "", "", "", "", "", "",
+            "https://res.cloudinary.com/demo/image/upload/photo.jpg",
+            "https://res.cloudinary.com/demo/image/upload/logo.jpg",
+            Map.of(), List.of(), null, null, "1.1.9", "1.1", "1");
+        when(products.findAll()).thenReturn(List.of(
+            product(List.of(quote("RS", "92", null)), "1.1.1"), pictured));
+        var first = service.search(request(), 0, 1).content().getFirst();
+        assertThat(first.material().materialCode()).isEqualTo("1.1.9");
+        assertThat(first.imageUrl()).isEqualTo(pictured.imageUrl());
+        assertThat(first.offers()).isEmpty(); // Never invent a price to feature a photo.
+        assertThat(service.search(request(filter("state", "RS")), 0, 1).content()
+            .getFirst().material().materialCode()).isEqualTo("1.1.1");
+    }
+
+    @Test void populatedVariationsOutrankEmptyVariationsAndFeaturedQuoteKeepsOwnPhoto() {
+        var empty = new CatalogMaterial("1.1.0", "1", "Agregados", "1.1", "Areias",
+                "Sem opções", "EM_REVISÃO", "", List.of());
+        when(catalog.findAll()).thenReturn(List.of(empty, material));
+        assertThat(service.search(request(), 0, 1).content().getFirst().material()).isEqualTo(material);
+        var pictured = new Product("photo", "Areia com foto", "Marca", "", "", "", "", "",
+            "https://res.cloudinary.com/demo/image/upload/photo.jpg", null,
+            Map.of(), List.of(quote("RS", "180", "1.1.1.V01.001")), null, null, "1.1.1", "1.1", "1");
+        when(products.findAll()).thenReturn(List.of(product(List.of(quote("RS", "50", null)), "1.1.1"), pictured));
+        var result = service.search(request(), 0, 1).content().getFirst();
+        assertThat(result.offers().getFirst().productId()).isEqualTo("photo");
+        assertThat(result.offers().getFirst().quote().value()).isEqualByComparingTo("180");
+        assertThat(result.imageUrl()).isEqualTo(pictured.imageUrl());
+    }
 }

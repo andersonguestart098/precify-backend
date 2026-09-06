@@ -66,8 +66,17 @@ public class CatalogSearchService {
                             .collect(Collectors.joining(" ")));
             if (!blank(request.query()) && Arrays.stream(norm(request.query()).split("\\s+"))
                     .anyMatch(term -> !haystack.contains(term))) continue;
-            offers.sort(Comparator.comparing(o -> o.quote().value()));
-            results.add(new Result(material, List.copyOf(offers)));
+            offers.sort(Comparator.comparingInt(CatalogSearchService::offerCompleteness).reversed()
+                    .thenComparing(o -> o.quote().value()).thenComparing(Offer::productId));
+            // A real product can have a photo before a supplier quote is registered.
+            Product preview = offers.isEmpty() ? byCode.getOrDefault(material.materialCode(), List.of()).stream()
+                    .filter(p -> blank(option) || (p.variations() != null && p.variations().stream()
+                        .anyMatch(v -> option.equals(v.optionCode()))))
+                    .max(Comparator.comparingInt(p -> (!blank(p.imageUrl()) ? 2 : 0)
+                        + (!blank(p.supplierLogoUrl()) ? 1 : 0))).orElse(null) : null;
+            String image = offers.isEmpty() ? (preview == null ? null : preview.imageUrl()) : offers.getFirst().imageUrl();
+            String logo = offers.isEmpty() ? (preview == null ? null : preview.supplierLogoUrl()) : offers.getFirst().supplierLogoUrl();
+            results.add(new Result(material, List.copyOf(offers), image, logo));
         }
         results.sort(Comparator.comparingInt(CatalogSearchService::completeness).reversed()
                 .thenComparing(r -> r.material().materialCode(), CatalogSearchService::compareCodes));
@@ -104,13 +113,20 @@ public class CatalogSearchService {
         return byCode;
     }
 
+    static int offerCompleteness(Offer offer) {
+        return (!blank(offer.imageUrl()) ? 1000 : 0)
+            + (!blank(offer.optionCode()) ? 100 : 0)
+            + (!blank(offer.supplierLogoUrl()) ? 20 : 0)
+            + (!blank(offer.label()) ? 2 : 0) + (!blank(offer.brand()) ? 1 : 0);
+    }
     static int completeness(Result result) {
-        int score = result.offers().isEmpty() ? 0 : 100;
-        score += result.offers().stream().mapToInt(o ->
-                (!blank(o.imageUrl()) ? 20 : 0) + (!blank(o.supplierLogoUrl()) ? 10 : 0)
-                + (!blank(o.label()) ? 5 : 0) + (!blank(o.brand()) ? 3 : 0)).max().orElse(0);
-        score += Math.min(10, result.material().variations().stream().filter(v -> !v.options().isEmpty()).count());
-        return score;
+        long variations = result.material().variations().stream().filter(v -> !v.options().isEmpty()).count();
+        // Photos and populated variations take precedence over price availability.
+        return (!blank(result.imageUrl()) ? 400 : 0)
+            + (variations > 0 ? 200 : 0)
+            + (!blank(result.supplierLogoUrl()) ? 40 : 0)
+            + (!result.offers().isEmpty() ? 20 : 0)
+            + (int) Math.min(10, variations);
     }
 
     private static int compareCodes(String a, String b) {
