@@ -32,11 +32,28 @@ public record Product(
         @NotEmpty Map<String, @NotBlank String> attributes,
         @NotEmpty @Valid List<Variation> variations,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        @Indexed String materialCode,
+        @Indexed String familyCode,
+        @Indexed String segmentCode) {
+
+    // Keep legacy seeds and persisted documents readable without guessing codes.
+    public Product(String id, String name, String brand, String model, String category,
+            String segment, String material, String description, String imageUrl,
+            String supplierLogoUrl, Map<String, String> attributes, List<Variation> variations,
+            Instant createdAt, Instant updatedAt) {
+        this(id, name, brand, model, category, segment, material, description, imageUrl,
+                supplierLogoUrl, attributes, variations, createdAt, updatedAt, null, null, null);
+    }
 
     public record Variation(
             @Indexed @TextIndexed(weight = 2) String label,
-            @NotNull @Valid Quote quote) {
+            @NotNull @Valid Quote quote,
+            String variationCode,
+            String optionCode) {
+        public Variation(String label, Quote quote) {
+            this(label, quote, null, null);
+        }
     }
 
     public record Quote(
