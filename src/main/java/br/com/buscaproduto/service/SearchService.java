@@ -48,11 +48,11 @@ public class SearchService {
         return product -> criteria.stream().allMatch(criterion -> switch (criterion.key()) {
             case "segmentCode" -> isBlank(criterion.value()) || equalsIgnoreCase(product.segmentCode(), criterion.value());
             case "materialCode" -> isBlank(criterion.value()) || equalsIgnoreCase(product.materialCode(), criterion.value());
-            case "optionCode" -> isBlank(criterion.value()) || product.variations().stream()
+            case "optionCode" -> isBlank(criterion.value()) || variations(product).stream()
                     .anyMatch(variation -> equalsIgnoreCase(variation.optionCode(), criterion.value()));
-            case "state" -> isBlank(criterion.value()) || product.variations().stream()
+            case "state" -> isBlank(criterion.value()) || variations(product).stream()
                     .anyMatch(variation -> equalsIgnoreCase(variation.quote().region(), criterion.value()));
-            case "price" -> isBlank(criterion.value()) || product.variations().stream()
+            case "price" -> isBlank(criterion.value()) || variations(product).stream()
                     .anyMatch(variation -> matchesPriceBand(variation.quote().value(), criterion.value()));
             default -> true;
         });
@@ -74,6 +74,10 @@ public class SearchService {
         if (normalized.startsWith("acima")) return value > 200;
         if (band.matches("[0-9]+([.,][0-9]+)?")) return price.compareTo(new BigDecimal(band.replace(',', '.'))) == 0;
         return true;
+    }
+
+    private List<Product.ProductVariation> variations(Product product) {
+        return product.variations() == null ? List.of() : product.variations();
     }
 
     private boolean equalsIgnoreCase(String left, String right) {
