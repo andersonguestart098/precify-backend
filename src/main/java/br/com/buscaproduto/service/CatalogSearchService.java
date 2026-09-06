@@ -63,7 +63,7 @@ public class CatalogSearchService {
                             !sameOrEmpty(filters.get("state"), q.region()) ||
                             (price != null && !priceMatches(q.value(), price))) continue;
                     offers.add(new Offer(product.id(), product.name(), product.brand(), product.model(),
-                            product.imageUrl(), variation.label(), variation.optionCode(), q));
+                            product.imageUrl(), variation.label(), variation.optionCode(), q, product.supplierLogoUrl()));
                 }
             }
             if (quoteFilter && offers.isEmpty()) continue;
