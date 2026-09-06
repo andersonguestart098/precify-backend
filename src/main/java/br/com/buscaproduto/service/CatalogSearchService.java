@@ -84,7 +84,7 @@ public class CatalogSearchService {
         int featuredCount = 0;
         for (int i = 0; i < results.size() && featuredCount < 4; i++) {
             Result r = results.get(i);
-            if (hasQuotedOption(r)) {
+            if (eligibleHighlight(r)) {
                 results.set(i, new Result(r.material(), r.offers(), r.imageUrl(), r.supplierLogoUrl(), true));
                 featuredCount++;
             }
@@ -128,6 +128,10 @@ public class CatalogSearchService {
             + (!blank(offer.supplierLogoUrl()) ? 20 : 0)
             + (!blank(offer.label()) ? 2 : 0) + (!blank(offer.brand()) ? 1 : 0);
     }
+    static boolean eligibleHighlight(Result result) {
+        String status = norm(result.material().status()).replace('_', ' ');
+        return !status.isBlank() && !status.equals("em revisao") && hasQuotedOption(result);
+    }
     static boolean hasQuotedOption(Result result) {
         return result.offers().stream().anyMatch(o -> !blank(o.optionCode())
             && result.material().variations().stream().flatMap(v -> v.options().stream())
@@ -136,7 +140,7 @@ public class CatalogSearchService {
     static int completeness(Result result) {
         long variations = result.material().variations().stream().filter(v -> !v.options().isEmpty()).count();
         // Photos and populated variations take precedence over price availability.
-        return (hasQuotedOption(result) ? 1000 : 0) + (!blank(result.imageUrl()) ? 400 : 0)
+        return (eligibleHighlight(result) ? 1000 : 0) + (!blank(result.imageUrl()) ? 400 : 0)
             + (variations > 0 ? 200 : 0)
             + (!blank(result.supplierLogoUrl()) ? 40 : 0)
             + (!result.offers().isEmpty() ? 20 : 0)
