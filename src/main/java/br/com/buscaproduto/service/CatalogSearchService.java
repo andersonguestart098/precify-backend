@@ -21,16 +21,16 @@ public class CatalogSearchService {
 
     public CatalogSearchPage search(SearchRequest request, int page, int size) {
         var materials = catalog.findAll();
+        Map<String, List<CatalogMaterial>> byNames = materials.stream().collect(Collectors.groupingBy(
+                m -> hierarchy(m.segmentName(), m.familyName(), m.materialName())));
         Map<String, List<Product>> byCode = new HashMap<>();
         for (Product product : products.findAll()) {
             String code = product.materialCode();
             if (blank(code)) {
                 // Exact full hierarchy only: never guess from old grouped labels or brands.
-                var matches = materials.stream().filter(m ->
-                        norm(m.segmentName()).equals(norm(product.segment())) &&
-                        norm(m.familyName()).equals(norm(product.category())) &&
-                        norm(m.materialName()).equals(norm(product.material()))).toList();
-                if (matches.size() == 1) code = matches.getFirst().materialCode();
+                var matches = byNames.getOrDefault(
+                        hierarchy(product.segment(), product.category(), product.material()), List.of());
+                if (matches.size() == 1) code = matches.get(0).materialCode();
             }
             if (!blank(code)) byCode.computeIfAbsent(code, ignored -> new ArrayList<>()).add(product);
         }
@@ -102,6 +102,9 @@ public class CatalogSearchService {
         };
     }
     private static boolean blank(String s) { return s == null || s.isBlank(); }
+    private static String hierarchy(String segment, String family, String material) {
+        return norm(segment) + "|" + norm(family) + "|" + norm(material);
+    }
     private static boolean sameOrEmpty(String filter, String value) {
         return blank(filter) || filter.equals(value);
     }
