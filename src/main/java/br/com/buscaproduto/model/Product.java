@@ -23,24 +23,19 @@ public record Product(
         @NotBlank @TextIndexed(weight = 5) String name,
         @NotBlank @TextIndexed(weight = 3) String brand,
         @NotBlank @TextIndexed(weight = 3) String model,
-        @NotBlank @Indexed String segmentCode,
-        @NotBlank @TextIndexed(weight = 2) String segment,
-        @NotBlank @Indexed String familyCode,
-        @NotBlank @TextIndexed(weight = 2) String category,
-        @NotBlank @Indexed String materialCode,
-        @NotBlank @TextIndexed(weight = 2) String material,
+        @NotBlank @Indexed @TextIndexed(weight = 2) String category,
+        @NotBlank @Indexed @TextIndexed(weight = 2) String segment,
+        @NotBlank @Indexed @TextIndexed(weight = 2) String material,
         @NotBlank @TextIndexed String description,
         String imageUrl,
         String supplierLogoUrl,
         @NotEmpty Map<String, @NotBlank String> attributes,
-        @NotEmpty List<@Valid ProductVariation> variations,
+        @NotEmpty @Valid List<Variation> variations,
         Instant createdAt,
         Instant updatedAt) {
 
-    public record ProductVariation(
-            @NotBlank String variationCode,
-            String optionCode,
-            String label,
+    public record Variation(
+            @Indexed @TextIndexed(weight = 2) String label,
             @NotNull @Valid Quote quote) {
     }
 

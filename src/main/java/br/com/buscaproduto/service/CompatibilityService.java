@@ -81,7 +81,9 @@ public class CompatibilityService {
 
         String name = normalize(product.name());
         String brandAndModel = normalize(product.brand() + " " + product.model());
-        String supplier = normalize(variations(product).stream()\n                .map(variation -> variation.quote().supplier()).collect(Collectors.joining(" ")));
+        String supplier = normalize(product.variations().stream()
+                .map(variation -> variation.quote().supplier())
+                .collect(Collectors.joining(" ")));
         String description = normalize(product.description());
         String attributes = normalize(product.attributes().entrySet().stream()
                 .map(entry -> entry.getKey() + " " + entry.getValue())
@@ -110,14 +112,12 @@ public class CompatibilityService {
 
         int brandScore = Math.max(
                 fuzzyBrandScore(product.brand(), query),
-                variations(product).stream().mapToInt(variation -> fuzzyBrandScore(variation.quote().supplier(), query))\n                        .max().orElse(0));
+                product.variations().stream()
+                        .mapToInt(variation -> fuzzyBrandScore(variation.quote().supplier(), query))
+                        .max().orElse(0));
         if (searchableTerms > 0 && allTermsMatched) return new TextMatch(true, score + brandScore);
         if (brandScore > 0) return new TextMatch(true, brandScore);
         return new TextMatch(false, 0);
-    }
-
-    private List<Product.ProductVariation> variations(Product product) {
-        return product.variations() == null ? List.of() : product.variations();
     }
 
     private int fuzzyBrandScore(String brand, String query) {

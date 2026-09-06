@@ -41,18 +41,18 @@ public class SearchService {
 
     private Predicate<Product> matchesFamily(String familyCode) {
         if (isBlank(familyCode)) return product -> true;
-        return product -> equalsIgnoreCase(product.familyCode(), familyCode);
+        return product -> equalsIgnoreCase(product.category(), familyCode);
     }
 
     private Predicate<Product> matchesCatalogFilters(List<TechnicalCriterion> criteria) {
         return product -> criteria.stream().allMatch(criterion -> switch (criterion.key()) {
-            case "segmentCode" -> isBlank(criterion.value()) || equalsIgnoreCase(product.segmentCode(), criterion.value());
-            case "materialCode" -> isBlank(criterion.value()) || equalsIgnoreCase(product.materialCode(), criterion.value());
-            case "optionCode" -> isBlank(criterion.value()) || variations(product).stream()
-                    .anyMatch(variation -> equalsIgnoreCase(variation.optionCode(), criterion.value()));
-            case "state" -> isBlank(criterion.value()) || variations(product).stream()
+            case "segment" -> isBlank(criterion.value()) || equalsIgnoreCase(product.segment(), criterion.value());
+            case "material" -> isBlank(criterion.value()) || equalsIgnoreCase(product.material(), criterion.value());
+            case "variation" -> isBlank(criterion.value()) || product.variations().stream()
+                    .anyMatch(variation -> equalsIgnoreCase(variation.label(), criterion.value()));
+            case "state" -> isBlank(criterion.value()) || product.variations().stream()
                     .anyMatch(variation -> equalsIgnoreCase(variation.quote().region(), criterion.value()));
-            case "price" -> isBlank(criterion.value()) || variations(product).stream()
+            case "price" -> isBlank(criterion.value()) || product.variations().stream()
                     .anyMatch(variation -> matchesPriceBand(variation.quote().value(), criterion.value()));
             default -> true;
         });
@@ -60,7 +60,7 @@ public class SearchService {
 
     private boolean isCatalogFilter(String key) {
         return switch (key) {
-            case "segmentCode", "materialCode", "optionCode", "state", "price" -> true;
+            case "segment", "material", "variation", "state", "price" -> true;
             default -> false;
         };
     }
@@ -74,10 +74,6 @@ public class SearchService {
         if (normalized.startsWith("acima")) return value > 200;
         if (band.matches("[0-9]+([.,][0-9]+)?")) return price.compareTo(new BigDecimal(band.replace(',', '.'))) == 0;
         return true;
-    }
-
-    private List<Product.ProductVariation> variations(Product product) {
-        return product.variations() == null ? List.of() : product.variations();
     }
 
     private boolean equalsIgnoreCase(String left, String right) {

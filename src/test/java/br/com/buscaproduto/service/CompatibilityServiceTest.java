@@ -114,12 +114,10 @@ class CompatibilityServiceTest {
             String temperature,
             String power,
             String protection) {
-        return new Product(id, "Luminária " + id, brand, "Modelo",
-                "29", "Iluminação", "29.1", "Lâmpadas LED", "29.1.1", "Luminária comercial",
-                "Produto para teste", null, null,
+        Product.Quote quote = new Product.Quote(BigDecimal.TEN, supplier, LocalDate.now(), "RS");
+        return new Product(id, "Luminária " + id, brand, "Modelo", "Iluminação", "Luminária comercial", null,
+                "Descrição de teste", "", "",
                 Map.of("temperature", temperature, "power", power, "protection", protection),
-                List.of(new Product.ProductVariation("29.1.1.V01", null, null,
-                        new Product.Quote(BigDecimal.TEN, supplier, LocalDate.now(), "RS"))),
-                Instant.now(), Instant.now());
+                List.of(new Product.Variation(null, quote)), Instant.now(), Instant.now());
     }
 }
