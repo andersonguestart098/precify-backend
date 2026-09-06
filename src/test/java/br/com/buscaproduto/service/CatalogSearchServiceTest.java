@@ -138,4 +138,16 @@ class CatalogSearchServiceTest {
         assertThat(result.offers()).isNotEmpty();
         assertThat(result.featured()).isFalse();
     }
+
+    @Test void readsImagesFromCatalogWithoutInventingOffers() {
+        var pictured = new CatalogMaterial(material.materialCode(), material.segmentCode(), material.segmentName(),
+            material.familyCode(), material.familyName(), material.materialName(), material.status(), material.observation(),
+            material.variations(), "https://example.test/material.png", "https://example.test/logo.png");
+        when(catalog.findAll()).thenReturn(List.of(pictured));
+        var result = service.search(request(), 0, 10).content().getFirst();
+        assertThat(result.imageUrl()).isEqualTo(pictured.imageUrl());
+        assertThat(result.supplierLogoUrl()).isEqualTo(pictured.supplierLogoUrl());
+        assertThat(result.offers()).isEmpty();
+        assertThat(service.detail(material.materialCode()).material().imageUrl()).isEqualTo(pictured.imageUrl());
+    }
 }

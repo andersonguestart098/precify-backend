@@ -76,6 +76,9 @@ public class CatalogSearchService {
                         + (!blank(p.supplierLogoUrl()) ? 1 : 0))).orElse(null) : null;
             String image = offers.isEmpty() ? (preview == null ? null : preview.imageUrl()) : offers.getFirst().imageUrl();
             String logo = offers.isEmpty() ? (preview == null ? null : preview.supplierLogoUrl()) : offers.getFirst().supplierLogoUrl();
+            if (blank(image)) image = material.imageUrl();
+            // A catalog logo is not evidence of the supplier behind a different offer.
+            if (offers.isEmpty() && blank(logo)) logo = material.supplierLogoUrl();
             results.add(new Result(material, List.copyOf(offers), image, logo));
         }
         results.sort(Comparator.comparingInt(CatalogSearchService::completeness).reversed()

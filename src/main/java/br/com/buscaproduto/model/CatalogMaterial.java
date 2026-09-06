@@ -16,7 +16,14 @@ public record CatalogMaterial(
         String materialName,
         String status,
         String observation,
-        List<CatalogVariation> variations) {
+        List<CatalogVariation> variations,
+        String imageUrl,
+        String supplierLogoUrl) {
+
+    public CatalogMaterial(String materialCode, String segmentCode, String segmentName, String familyCode,
+            String familyName, String materialName, String status, String observation, List<CatalogVariation> variations) {
+        this(materialCode, segmentCode, segmentName, familyCode, familyName, materialName, status, observation, variations, "", "");
+    }
 
     public record CatalogVariation(
             String variationCode,
