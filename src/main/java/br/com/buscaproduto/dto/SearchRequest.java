@@ -6,7 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
 public record SearchRequest(
-        String category,
+        String familyCode,
         String query,
         @NotNull List<@Valid TechnicalCriterion> criteria,
         boolean includeAlternatives) {
