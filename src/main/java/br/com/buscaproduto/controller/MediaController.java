@@ -59,7 +59,7 @@ public class MediaController {
         try (var input = files.getResource(file).getInputStream()) {
             return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG)
                 .header("X-Content-Type-Options", "nosniff")
-                .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(7)).cachePublic()).body(input.readAllBytes());
+                .cacheControl(CacheControl.noStore()).body(input.readAllBytes());
         }
     }
 

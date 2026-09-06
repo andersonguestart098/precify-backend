@@ -28,15 +28,18 @@ public class AuthService {
     public UserView me(String id) {
         return view(users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED)));
     }
-    public Session register(String name, String email, String password) {
+    public UserView createUser(String name, String email, String password, AppUser.Role role) {
         validatePassword(password);
         try {
-            return session(users.insert(new AppUser(email(email), name.trim(), passwords.encode(password), AppUser.Role.USER, Instant.now())));
+            return view(users.insert(new AppUser(email(email), name.trim(), passwords.encode(password), role, Instant.now())));
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Não foi possível cadastrar este e-mail.");
         }
     }
+    public List<UserView> listUsers() { return users.findAll().stream().map(this::view).toList(); }
     public Session login(String email, String password) {
+        if (password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.");
         var user = users.findById(email(email)).orElse(null);
         boolean matches = passwords.matches(password, user == null ? dummyHash : user.passwordHash());
         if (user == null || !matches) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.");

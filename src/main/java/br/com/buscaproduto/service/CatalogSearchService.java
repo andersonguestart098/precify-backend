@@ -25,19 +25,7 @@ public class CatalogSearchService {
 
     public CatalogSearchPage search(SearchRequest request, int page, int size, Set<String> allowedCodes) {
         var materials = catalog.findAll();
-        Map<String, List<CatalogMaterial>> byNames = materials.stream().collect(Collectors.groupingBy(
-                m -> hierarchy(m.segmentName(), m.familyName(), m.materialName())));
-        Map<String, List<Product>> byCode = new HashMap<>();
-        for (Product product : products.findAll()) {
-            String code = product.materialCode();
-            if (blank(code)) {
-                // Exact full hierarchy only: never guess from old grouped labels or brands.
-                var matches = byNames.getOrDefault(
-                        hierarchy(product.segment(), product.category(), product.material()), List.of());
-                if (matches.size() == 1) code = matches.get(0).materialCode();
-            }
-            if (!blank(code)) byCode.computeIfAbsent(code, ignored -> new ArrayList<>()).add(product);
-        }
+        Map<String, List<Product>> byCode = productsByCode(materials);
         var filters = new HashMap<String, String>();
         for (TechnicalCriterion criterion : request.criteria()) {
             if (blank(criterion.value())) continue;
@@ -88,6 +76,32 @@ public class CatalogSearchService {
         int to = (int) Math.min(offset + size, results.size());
         return new CatalogSearchPage(List.copyOf(results.subList(from, to)), page, size, results.size(),
                 (results.size() + size - 1) / size);
+    }
+
+    public record Detail(CatalogMaterial material, List<Product> products) {}
+    public Detail detail(String code) {
+        var materials = catalog.findAll();
+        var material = materials.stream().filter(m -> m.materialCode().equals(code)).findFirst()
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Produto não encontrado."));
+        return new Detail(material, List.copyOf(productsByCode(materials).getOrDefault(code, List.of())));
+    }
+
+    private Map<String, List<Product>> productsByCode(List<CatalogMaterial> materials) {
+        Map<String, List<CatalogMaterial>> byNames = materials.stream().collect(Collectors.groupingBy(
+                m -> hierarchy(m.segmentName(), m.familyName(), m.materialName())));
+        Map<String, List<Product>> byCode = new HashMap<>();
+        for (Product product : products.findAll()) {
+            String code = product.materialCode();
+            if (blank(code)) {
+                // Exact full hierarchy only: never guess from old grouped labels or brands.
+                var matches = byNames.getOrDefault(
+                        hierarchy(product.segment(), product.category(), product.material()), List.of());
+                if (matches.size() == 1) code = matches.get(0).materialCode();
+            }
+            if (!blank(code)) byCode.computeIfAbsent(code, ignored -> new ArrayList<>()).add(product);
+        }
+        return byCode;
     }
 
     static int completeness(Result result) {

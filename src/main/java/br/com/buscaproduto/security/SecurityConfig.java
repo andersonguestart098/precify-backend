@@ -42,9 +42,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error", "/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
-                    "/api/catalog/search", "/api/search", "/api/search/paged").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/catalog", "/api/products", "/api/products/*", "/api/media/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers("/api/users", "/api/users/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/catalog", "/api/catalog/**", "/api/products", "/api/products/*", "/api/media/*").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/catalog/search", "/api/search", "/api/search/paged").authenticated()
                 .requestMatchers("/api/auth/me", "/api/favorites", "/api/favorites/**").authenticated()
                 .requestMatchers("/api/products/**", "/api/media").hasRole("ADMIN")
                 .anyRequest().denyAll())

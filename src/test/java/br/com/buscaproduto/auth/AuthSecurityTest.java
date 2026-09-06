@@ -39,7 +39,7 @@ import br.com.buscaproduto.model.CatalogMaterial;
 class AuthSecurityTest {
     @SpringBootConfiguration
     @EnableAutoConfiguration(exclude={MongoAutoConfiguration.class, MongoDataAutoConfiguration.class})
-    @Import({SecurityConfig.class, WebConfig.class, AuthService.class, AuthController.class,
+    @Import({SecurityConfig.class, WebConfig.class, AuthService.class, AuthController.class, UserController.class, CatalogDetailController.class,
         FavoriteController.class, CatalogSearchService.class, CatalogSearchController.class, MediaController.class})
     static class TestApp {}
     @Autowired MockMvc mvc;
@@ -66,11 +66,13 @@ class AuthSecurityTest {
         when(products.findAll()).thenReturn(List.of());
     }
     String register(String email) throws Exception {
-        var body = json.writeValueAsString(Map.of("name","Teste","email",email,"password","SenhaTeste123!","role","ADMIN"));
-        var response=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.user.role").value("USER"))
-            .andExpect(jsonPath("$.user.passwordHash").doesNotExist()).andReturn();
-        return json.readTree(response.getResponse().getContentAsString()).get("accessToken").asText();
+        if (!db.containsKey("bootstrap@example.com")) auth.createUser("Admin", "bootstrap@example.com", "SenhaTeste123!", AppUser.Role.ADMIN);
+        String adminToken = auth.login("bootstrap@example.com", "SenhaTeste123!").accessToken();
+        var body = json.writeValueAsString(Map.of("name","Teste","email",email,"password","SenhaTeste123!","role","USER"));
+        mvc.perform(post("/api/users").header("Authorization", "Bearer " + adminToken).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.role").value("USER"))
+            .andExpect(jsonPath("$.passwordHash").doesNotExist()).andExpect(jsonPath("$.accessToken").doesNotExist());
+        return auth.login(email, "SenhaTeste123!").accessToken();
     }
     @Test void registersUserHashesPasswordAndLogsInWithRealJwt() throws Exception {
         var token=register("USER@example.com");
@@ -115,12 +117,28 @@ class AuthSecurityTest {
         mvc.perform(get("/api/auth/me").header("Authorization","Bearer "+token.substring(0,token.lastIndexOf('.')+1)+"invalid"))
             .andExpect(status().isUnauthorized());
     }
-    @Test void publicSearchAndCorsStillWork() throws Exception {
-        mvc.perform(post("/api/catalog/search").contentType(MediaType.APPLICATION_JSON).content("{\"criteria\":[]}"))
+    @Test void allCatalogEndpointsRequireJwtAndCorsStillWorks() throws Exception {
+        for (String path : List.of("/api/catalog", "/api/catalog/1.1.1/details", "/api/products", "/api/media/012345678901234567890123"))
+            mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/catalog/search").contentType(MediaType.APPLICATION_JSON).content("{\"criteria\":[]}")).andExpect(status().isUnauthorized());
+        String token = register("reader@example.com");
+        mvc.perform(post("/api/catalog/search").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("{\"criteria\":[]}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
         mvc.perform(options("/api/favorites").header("Origin","https://busca-produto-frontend.vercel.app")
             .header("Access-Control-Request-Method","GET").header("Access-Control-Request-Headers","authorization,ngrok-skip-browser-warning"))
             .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin","https://busca-produto-frontend.vercel.app"));
+    }
+    @Test void usersCanOnlyBeCreatedByAdminAndPublicSignupIsDisabled() throws Exception {
+        String body = "{\"name\":\"New admin\",\"email\":\"second@example.com\",\"password\":\"SenhaTeste123!\",\"role\":\"ADMIN\"}";
+        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
+        String user = register("reader@example.com");
+        mvc.perform(post("/api/users").header("Authorization", "Bearer " + user).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
+        String admin = auth.login("bootstrap@example.com", "SenhaTeste123!").accessToken();
+        mvc.perform(post("/api/users").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.role").value("ADMIN"));
+        assertThat(decoder.decode(auth.login("second@example.com", "SenhaTeste123!").accessToken()).getClaimAsStringList("roles")).containsExactly("ADMIN");
+        mvc.perform(get("/api/catalog/1.1.1/details").header("Authorization", "Bearer " + admin)).andExpect(status().isOk()).andExpect(jsonPath("$.material.materialCode").value("1.1.1"));
     }
     @Test void mediaRejectsNonImagesAndStoresValidPngForAdmin() throws Exception {
         register("a@example.com");
