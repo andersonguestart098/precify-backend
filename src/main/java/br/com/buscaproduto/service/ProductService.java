@@ -13,13 +13,9 @@ import br.com.buscaproduto.repository.ProductRepository;
 public class ProductService {
     private final ProductRepository repository;
 
-    public ProductService(ProductRepository repository) {
-        this.repository = repository;
-    }
+    public ProductService(ProductRepository repository) { this.repository = repository; }
 
-    public List<Product> findAll() {
-        return repository.findAll();
-    }
+    public List<Product> findAll() { return repository.findAll(); }
 
     public Product findById(String id) {
         return repository.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
@@ -27,10 +23,10 @@ public class ProductService {
 
     public Product save(Product product) {
         Instant now = Instant.now();
-        Product prepared = new Product(
-                product.id(), product.name(), product.brand(), product.model(), product.category(),
-                product.description(), product.imageUrl(), product.supplierLogoUrl(),
-                product.attributes(), product.quote(),
+        Product prepared = new Product(product.id(), product.name(), product.brand(), product.model(),
+                product.segmentCode(), product.segment(), product.familyCode(), product.category(),
+                product.materialCode(), product.material(), product.description(), product.imageUrl(),
+                product.supplierLogoUrl(), product.attributes(), product.variations(),
                 product.createdAt() == null ? now : product.createdAt(), now);
         return repository.save(prepared);
     }
