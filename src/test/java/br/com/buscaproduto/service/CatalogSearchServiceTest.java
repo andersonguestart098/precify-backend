@@ -114,4 +114,21 @@ class CatalogSearchServiceTest {
         assertThat(result.offers().getFirst().quote().value()).isEqualByComparingTo("180");
         assertThat(result.imageUrl()).isEqualTo(pictured.imageUrl());
     }
+
+    @Test void highlightsAtMostFourQuotedMaterialsBeforePagination() {
+        var materials = new java.util.ArrayList<CatalogMaterial>();
+        var offers = new java.util.ArrayList<Product>();
+        for (int n = 1; n <= 6; n++) {
+            String code = "1.1." + n;
+            materials.add(new CatalogMaterial(code, "1", "Agregados", "1.1", "Areias",
+                "Areia " + n, "EM_REVISÃO", "", material.variations()));
+            offers.add(product(List.of(quote("RS", "92", "1.1.1.V01.001")), code));
+        }
+        when(catalog.findAll()).thenReturn(materials);
+        when(products.findAll()).thenReturn(offers);
+        var page = service.search(request(), 0, 10);
+        assertThat(page.content().stream().filter(r -> r.featured()).count()).isEqualTo(4);
+        assertThat(service.search(request(), 1, 4).content()).allMatch(r -> !r.featured());
+        assertThat(service.search(request(filter("state", "SP")), 0, 10).content()).isEmpty();
+    }
 }
