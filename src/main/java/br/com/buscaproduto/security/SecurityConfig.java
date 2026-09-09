@@ -46,7 +46,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/users", "/api/users/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/catalog", "/api/catalog/**", "/api/products", "/api/products/*", "/api/media/*").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/catalog/search", "/api/search", "/api/search/paged").authenticated()
-                .requestMatchers("/api/auth/me", "/api/favorites", "/api/favorites/**").authenticated()
+                .requestMatchers("/api/auth/me", "/api/favorites", "/api/favorites/**", "/api/compositions", "/api/compositions/**").authenticated()
                 .requestMatchers("/api/products/**", "/api/media").hasRole("ADMIN")
                 .anyRequest().denyAll())
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)))
