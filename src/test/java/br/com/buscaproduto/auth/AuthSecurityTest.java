@@ -31,6 +31,10 @@ import br.com.buscaproduto.repository.ProductRepository;
 import br.com.buscaproduto.service.*;
 import br.com.buscaproduto.security.SecurityConfig;
 import br.com.buscaproduto.model.CatalogMaterial;
+import br.com.buscaproduto.composition.PlanningController;
+import br.com.buscaproduto.composition.CompositionRepository;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 
 @SpringBootTest(classes=AuthSecurityTest.TestApp.class, properties={
     "JWT_SECRET=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
@@ -40,7 +44,7 @@ class AuthSecurityTest {
     @SpringBootConfiguration
     @EnableAutoConfiguration(exclude={MongoAutoConfiguration.class, MongoDataAutoConfiguration.class})
     @Import({SecurityConfig.class, WebConfig.class, AuthService.class, AuthController.class, UserController.class, CatalogDetailController.class,
-        FavoriteController.class, CatalogSearchService.class, CatalogSearchController.class, MediaController.class})
+        FavoriteController.class, CatalogSearchService.class, CatalogSearchController.class, MediaController.class, PlanningController.class})
     static class TestApp {}
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -52,6 +56,8 @@ class AuthSecurityTest {
     @MockitoBean CatalogService catalog;
     @MockitoBean ProductRepository products;
     @MockitoBean GridFsTemplate files;
+    @MockitoBean MongoTemplate mongo;
+    @MockitoBean CompositionRepository compositions;
     final Map<String,AppUser> db = new HashMap<>();
     final Map<String,Favorite> fav = new HashMap<>();
     @BeforeEach void setup() {
@@ -73,6 +79,27 @@ class AuthSecurityTest {
             .andExpect(status().isCreated()).andExpect(jsonPath("$.role").value("USER"))
             .andExpect(jsonPath("$.passwordHash").doesNotExist()).andExpect(jsonPath("$.accessToken").doesNotExist());
         return auth.login(email, "SenhaTeste123!").accessToken();
+    }
+    @Test void ordinaryUserCanManageOwnWorksAndHistory() throws Exception {
+        mvc.perform(get("/api/planning/projects")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/planning/projects").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Obra\",\"compositionIds\":[]}")).andExpect(status().isUnauthorized());
+        String token = register("worker@example.com");
+        when(mongo.find(any(Query.class), eq(PlanningController.Project.class))).thenReturn(List.of());
+        when(mongo.find(any(Query.class), eq(PlanningController.History.class))).thenReturn(List.of());
+        when(mongo.save(any(PlanningController.Project.class))).thenAnswer(i -> i.getArgument(0));
+        mvc.perform(get("/api/planning/projects").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        mvc.perform(get("/api/planning/history").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        mvc.perform(post("/api/planning/projects").header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Obra\",\"compositionIds\":[]}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.userId").value("worker@example.com"));
+        when(mongo.exists(any(Query.class), eq(PlanningController.Project.class))).thenReturn(false);
+        mvc.perform(put("/api/planning/projects/foreign").header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Obra\",\"compositionIds\":[]}"))
+            .andExpect(status().isNotFound());
+        mvc.perform(post("/api/planning/projects").header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Obra\",\"compositionIds\":[\"foreign\"]}"))
+            .andExpect(status().isBadRequest());
     }
     @Test void registersUserHashesPasswordAndLogsInWithRealJwt() throws Exception {
         var token=register("USER@example.com");
@@ -122,6 +149,8 @@ class AuthSecurityTest {
             mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/catalog/search").contentType(MediaType.APPLICATION_JSON).content("{\"criteria\":[]}")).andExpect(status().isUnauthorized());
         String token = register("reader@example.com");
+        mvc.perform(get("/api/catalog/1.1.1/details").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk());
         mvc.perform(post("/api/catalog/search").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("{\"criteria\":[]}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
         mvc.perform(options("/api/favorites").header("Origin","https://busca-produto-frontend.vercel.app")
