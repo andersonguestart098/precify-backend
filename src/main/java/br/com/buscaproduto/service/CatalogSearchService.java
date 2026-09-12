@@ -51,7 +51,6 @@ public class CatalogSearchService {
                     var q = variation.quote();
                     if (q == null || q.value() == null || q.value().signum() <= 0 ||
                             blank(q.supplier()) || norm(q.supplier()).contains("a definir")) continue;
-                    // All offer filters must match the SAME quote.
                     if (!sameOrEmpty(option, variation.optionCode()) ||
                             !sameOrEmpty(filters.get("state"), q.region()) ||
                             (price != null && !priceMatches(q.value(), price))) continue;
@@ -68,7 +67,6 @@ public class CatalogSearchService {
                     .anyMatch(term -> !haystack.contains(term))) continue;
             offers.sort(Comparator.comparingInt(CatalogSearchService::offerCompleteness).reversed()
                     .thenComparing(o -> o.quote().value()).thenComparing(Offer::productId));
-            // A real product can have a photo before a supplier quote is registered.
             Product preview = offers.isEmpty() ? byCode.getOrDefault(material.materialCode(), List.of()).stream()
                     .filter(p -> blank(option) || (p.variations() != null && p.variations().stream()
                         .anyMatch(v -> option.equals(v.optionCode()))))
@@ -77,13 +75,11 @@ public class CatalogSearchService {
             String image = offers.isEmpty() ? (preview == null ? null : preview.imageUrl()) : offers.getFirst().imageUrl();
             String logo = offers.isEmpty() ? (preview == null ? null : preview.supplierLogoUrl()) : offers.getFirst().supplierLogoUrl();
             if (blank(image)) image = material.imageUrl();
-            // A catalog logo is not evidence of the supplier behind a different offer.
             if (offers.isEmpty() && blank(logo)) logo = material.supplierLogoUrl();
             results.add(new Result(material, List.copyOf(offers), image, logo));
         }
         results.sort(Comparator.comparingInt(CatalogSearchService::completeness).reversed()
                 .thenComparing(r -> r.material().materialCode(), CatalogSearchService::compareCodes));
-        // Choose highlights from the filtered results before pagination.
         int featuredCount = 0;
         for (int i = 0; i < results.size() && featuredCount < 4; i++) {
             Result r = results.get(i);
@@ -115,7 +111,6 @@ public class CatalogSearchService {
         for (Product product : products.findAll()) {
             String code = product.materialCode();
             if (blank(code)) {
-                // Exact full hierarchy only: never guess from old grouped labels or brands.
                 var matches = byNames.getOrDefault(
                         hierarchy(product.segment(), product.category(), product.material()), List.of());
                 if (matches.size() == 1) code = matches.get(0).materialCode();
@@ -142,7 +137,6 @@ public class CatalogSearchService {
     }
     static int completeness(Result result) {
         long variations = result.material().variations().stream().filter(v -> !v.options().isEmpty()).count();
-        // Photos and populated variations take precedence over price availability.
         return (eligibleHighlight(result) ? 1000 : 0) + (!blank(result.imageUrl()) ? 400 : 0)
             + (variations > 0 ? 200 : 0)
             + (!blank(result.supplierLogoUrl()) ? 40 : 0)
@@ -159,6 +153,21 @@ public class CatalogSearchService {
         return Integer.compare(aa.length, bb.length);
     }
     private static boolean priceMatches(BigDecimal amount, String band) {
+        if (band.contains(":")) {
+            String[] parts = band.split(":", -1);
+            if (parts.length != 2) throw new IllegalArgumentException("Faixa de preço inválida.");
+            try {
+                BigDecimal min = parts[0].isBlank() ? null : new BigDecimal(parts[0].replace(',', '.'));
+                BigDecimal max = parts[1].isBlank() ? null : new BigDecimal(parts[1].replace(',', '.'));
+                if (min == null && max == null) throw new IllegalArgumentException("Faixa de preço inválida.");
+                if ((min != null && min.signum() < 0) || (max != null && max.signum() < 0)
+                        || (min != null && max != null && min.compareTo(max) > 0))
+                    throw new IllegalArgumentException("Faixa de preço inválida.");
+                return (min == null || amount.compareTo(min) >= 0) && (max == null || amount.compareTo(max) <= 0);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Faixa de preço inválida.");
+            }
+        }
         return switch (band) {
             case "Até R$ 100" -> amount.compareTo(new BigDecimal("100")) <= 0;
             case "R$ 100 a R$ 150" -> amount.compareTo(new BigDecimal("100")) >= 0 && amount.compareTo(new BigDecimal("150")) <= 0;
