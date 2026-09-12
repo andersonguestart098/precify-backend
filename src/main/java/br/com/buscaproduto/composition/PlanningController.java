@@ -25,7 +25,7 @@ public class PlanningController {
     @Document("user_projects")
     public record Project(@Id String id, String userId, String name, List<String> compositionIds) {}
     @Document("search_history")
-    public record History(@Id String id, String userId, String query, Instant createdAt) {}
+    public record History(@Id String id, String userId, String query, Instant createdAt, int count) {}
     public record ProjectRequest(@NotBlank @Size(max=80) String name, @NotNull @Size(max=200) List<@NotBlank String> compositionIds) {}
     public record SearchRequest(@NotBlank @Size(max=300) String query) {}
     private Query owned(String user) { return Query.query(Criteria.where("userId").is(user)); }
@@ -50,8 +50,10 @@ public class PlanningController {
     @PostMapping("/history")
     public History remember(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody SearchRequest body) {
         String text = body.query().trim();
-        String id = UUID.nameUUIDFromBytes((jwt.getSubject() + "\n" + text).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
-        var saved = mongo.save(new History(id, jwt.getSubject(), text, Instant.now()));
+        String id = UUID.nameUUIDFromBytes((jwt.getSubject() + "\n" + text.toLowerCase(java.util.Locale.ROOT)).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        History previous = mongo.findById(id, History.class);
+        int count = previous == null ? 1 : Math.max(1, previous.count()) + 1;
+        var saved = mongo.save(new History(id, jwt.getSubject(), text, Instant.now(), count));
         var stale = mongo.find(owned(jwt.getSubject()).with(org.springframework.data.domain.Sort.by("createdAt").descending()).skip(30), History.class);
         for (var item : stale) mongo.remove(item);
         return saved;
