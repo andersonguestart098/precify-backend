@@ -3,7 +3,9 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -12,9 +14,16 @@ public class UserController {
     public record CreateUser(@NotBlank @Size(max=100) String name, @NotBlank @Email @Size(max=254) String email,
         @NotBlank @Size(min=8,max=72) String password, @NotNull AppUser.Role role, @Size(max=2048) String avatarUrl) {}
     public record AvatarUpdate(@NotNull @Size(max=2048) String avatarUrl) {}
+    public record ActiveUpdate(boolean active) {}
     @PatchMapping("/{id}/avatar")
     public AuthService.UserView avatar(@PathVariable String id, @Valid @RequestBody AvatarUpdate request) {
         return service.updateAvatar(id, request.avatarUrl());
+    }
+    @PatchMapping("/{id}/active")
+    public AuthService.UserView active(@PathVariable String id, @RequestBody ActiveUpdate request, JwtAuthenticationToken auth) {
+        if (!request.active() && auth.getName().equalsIgnoreCase(id))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você não pode inativar seu próprio usuário.");
+        return service.updateActive(id, request.active());
     }
     @GetMapping public List<AuthService.UserView> list() { return service.listUsers(); }
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
