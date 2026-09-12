@@ -21,12 +21,14 @@ public class AuthService {
         this.users = users; this.passwords = passwords; this.encoder = encoder;
         this.dummyHash = passwords.encode(java.util.UUID.randomUUID().toString());
     }
-    public record UserView(String id, String name, String email, AppUser.Role role, String avatarUrl) {}
+    public record UserView(String id, String name, String email, AppUser.Role role, String avatarUrl, boolean active) {}
     public record Session(String accessToken, Instant expiresAt, UserView user) {}
     public static String email(String email) { return email.trim().toLowerCase(Locale.ROOT); }
-    public UserView view(AppUser u) { return new UserView(u.id(), u.name(), u.id(), u.role(), u.avatarUrl() == null ? "" : u.avatarUrl()); }
+    public UserView view(AppUser u) { return new UserView(u.id(), u.name(), u.id(), u.role(), u.avatarUrl() == null ? "" : u.avatarUrl(), u.enabled()); }
     public UserView me(String id) {
-        return view(users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED)));
+        var user = users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        if (!user.enabled()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        return view(user);
     }
     public UserView createUser(String name, String email, String password, AppUser.Role role) {
         return createUser(name, email, password, role, "");
@@ -35,7 +37,7 @@ public class AuthService {
         String avatar = validateAvatar(avatarUrl);
         validatePassword(password);
         try {
-            return view(users.insert(new AppUser(email(email), name.trim(), passwords.encode(password), role, Instant.now(), avatar)));
+            return view(users.insert(new AppUser(email(email), name.trim(), passwords.encode(password), role, Instant.now(), avatar, true)));
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Não foi possível cadastrar este e-mail.");
         }
@@ -56,7 +58,11 @@ public class AuthService {
     public UserView updateAvatar(String id, String avatarUrl) {
         String avatar = validateAvatar(avatarUrl);
         var u = users.findById(email(id)).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return view(users.save(new AppUser(u.id(), u.name(), u.passwordHash(), u.role(), u.createdAt(), avatar)));
+        return view(users.save(new AppUser(u.id(), u.name(), u.passwordHash(), u.role(), u.createdAt(), avatar, u.enabled())));
+    }
+    public UserView updateActive(String id, boolean active) {
+        var u = users.findById(email(id)).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return view(users.save(new AppUser(u.id(), u.name(), u.passwordHash(), u.role(), u.createdAt(), u.avatarUrl(), active)));
     }
     public List<UserView> listUsers() { return users.findAll().stream().map(this::view).toList(); }
     public Session login(String email, String password) {
@@ -64,7 +70,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.");
         var user = users.findById(email(email)).orElse(null);
         boolean matches = passwords.matches(password, user == null ? dummyHash : user.passwordHash());
-        if (user == null || !matches) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.");
+        if (user == null || !user.enabled() || !matches) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.");
         return session(user);
     }
     public static void validatePassword(String password) {
