@@ -44,7 +44,11 @@ public class PlanningController {
         return mongo.save(new Project(id, jwt.getSubject(), body.name().trim(), body.compositionIds().stream().distinct().toList()));
     }
     @DeleteMapping("/projects/{id}")
-    public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { mongo.remove(owned(jwt.getSubject()).addCriteria(Criteria.where("id").is(id)), Project.class); }
+    public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+        String userId = jwt.getSubject();
+        mongo.remove(owned(userId).addCriteria(Criteria.where("id").is(id)), Project.class);
+        mongo.remove(Query.query(Criteria.where("userId").is(userId)).addCriteria(Criteria.where("projectId").is(id)), LaborController.LaborPlan.class);
+    }
     @GetMapping("/history")
     public List<History> history(@AuthenticationPrincipal Jwt jwt) { return mongo.find(owned(jwt.getSubject()).with(org.springframework.data.domain.Sort.by("createdAt").descending()).limit(30), History.class); }
     @PostMapping("/history")
