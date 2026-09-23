@@ -22,9 +22,36 @@ public class FavoriteController {
         this.favorites = favorites; this.catalog = catalog; this.search = search;
     }
     @GetMapping public Set<String> list(@AuthenticationPrincipal Jwt jwt) {
-        return favorites.findByUserId(jwt.getSubject()).stream().map(Favorite::materialCode).collect(Collectors.toSet());
+        return favorites.findByUserId(jwt.getSubject()).stream()
+            .map(Favorite::materialCode)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+    }
+
+    @GetMapping("/workspace")
+    public Map<String, Set<String>> workspace(@AuthenticationPrincipal Jwt jwt) {
+        Map<String, Set<String>> result = new LinkedHashMap<>();
+        for (String type : List.of("WORK", "LABOR", "COMPOSITION")) {
+            result.put(type, favorites.findByUserIdAndEntityType(jwt.getSubject(), type).stream()
+                .map(Favorite::entityId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+        }
+        return result;
     }
     public record Selection(boolean favorite) {}
+
+    @PutMapping("/workspace/{type}/{id}")
+    public Selection setWorkspace(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Pattern(regexp="WORK|LABOR|COMPOSITION") String type,
+            @PathVariable @NotBlank String id,
+            @RequestBody Selection selection) {
+        String favoriteId = jwt.getSubject() + ":" + type + ":" + id;
+        if (selection.favorite()) favorites.save(Favorite.workspace(jwt.getSubject(), type, id));
+        else favorites.deleteById(favoriteId);
+        return selection;
+    }
+
     @PutMapping("/{code}") public Selection set(@AuthenticationPrincipal Jwt jwt, @PathVariable @Pattern(regexp="[0-9]+(\\.[0-9]+)*") String code,
         @RequestBody Selection selection) {
         if (catalog.findAll().stream().noneMatch(m -> m.materialCode().equals(code)))
