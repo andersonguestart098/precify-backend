@@ -11,6 +11,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import br.com.buscaproduto.dto.*;
 import br.com.buscaproduto.service.*;
+import br.com.buscaproduto.composition.CompositionRepository;
+import br.com.buscaproduto.composition.PlanningController;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 @Validated
 @RestController
 @RequestMapping("/api/favorites")
@@ -18,8 +23,12 @@ public class FavoriteController {
     private final FavoriteRepository favorites;
     private final CatalogService catalog;
     private final CatalogSearchService search;
-    public FavoriteController(FavoriteRepository favorites, CatalogService catalog, CatalogSearchService search) {
+    private final CompositionRepository compositions;
+    private final MongoTemplate mongo;
+    public FavoriteController(FavoriteRepository favorites, CatalogService catalog, CatalogSearchService search,
+            CompositionRepository compositions, MongoTemplate mongo) {
         this.favorites = favorites; this.catalog = catalog; this.search = search;
+        this.compositions = compositions; this.mongo = mongo;
     }
     @GetMapping public Set<String> list(@AuthenticationPrincipal Jwt jwt) {
         return favorites.findByUserId(jwt.getSubject()).stream()
@@ -44,8 +53,17 @@ public class FavoriteController {
     @PutMapping("/workspace/{type}/{id}")
     public Selection setWorkspace(@AuthenticationPrincipal Jwt jwt,
             @PathVariable @Pattern(regexp="WORK|LABOR|COMPOSITION") String type,
-            @PathVariable @NotBlank String id,
+            @PathVariable @NotBlank @Size(max=120) String id,
             @RequestBody Selection selection) {
+        if (selection.favorite()) {
+            if ("WORK".equals(type) && !mongo.exists(Query.query(Criteria.where("userId").is(jwt.getSubject())
+                    .and("id").is(id)), PlanningController.Project.class))
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Obra não encontrada.");
+            if ("COMPOSITION".equals(type) && compositions.findByIdAndUserId(id, jwt.getSubject()).isEmpty())
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Composição não encontrada.");
+            if ("LABOR".equals(type) && !id.matches("MO\\.[0-9]+\\.[0-9]+\\.[0-9]+"))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código de mão de obra inválido.");
+        }
         String favoriteId = jwt.getSubject() + ":" + type + ":" + id;
         if (selection.favorite()) favorites.save(Favorite.workspace(jwt.getSubject(), type, id));
         else favorites.deleteById(favoriteId);

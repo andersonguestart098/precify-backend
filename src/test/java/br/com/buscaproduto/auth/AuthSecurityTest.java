@@ -66,6 +66,8 @@ class AuthSecurityTest {
             if(db.containsKey(u.id())) throw new org.springframework.dao.DuplicateKeyException("duplicate");
             db.put(u.id(),u); return u; });
         when(favorites.findByUserId(anyString())).thenAnswer(i -> fav.values().stream().filter(f -> f.userId().equals(i.getArgument(0))).toList());
+        when(favorites.findByUserIdAndEntityType(anyString(), anyString())).thenAnswer(i -> fav.values().stream()
+            .filter(f -> f.userId().equals(i.getArgument(0)) && i.getArgument(1).equals(f.entityType())).toList());
         when(favorites.save(any(Favorite.class))).thenAnswer(i -> { Favorite f=i.getArgument(0); fav.put(f.id(),f); return f; });
         doAnswer(i -> { fav.remove(i.getArgument(0)); return null; }).when(favorites).deleteById(anyString());
         when(catalog.findAll()).thenReturn(List.of(new CatalogMaterial("1.1.1","1","Segmento","1.1","Familia","Material","EM_REVISÃO","",List.of())));
@@ -123,6 +125,45 @@ class AuthSecurityTest {
             .content("{\"criteria\":[]}")).andExpect(jsonPath("$.totalElements").value(0));
         mvc.perform(put("/api/favorites/1.1.1").header("Authorization","Bearer "+a)
             .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":false}")).andExpect(status().isOk());
+        assertThat(fav).isEmpty();
+    }
+    @Test void workspaceFavoritesSupportAllTypesWithoutLeakingUsersOrMaterials() throws Exception {
+        var a = register("owner@example.com"); var b = register("other@example.com");
+        mvc.perform(get("/api/favorites/workspace")).andExpect(status().isUnauthorized());
+        when(mongo.exists(any(Query.class), eq(PlanningController.Project.class))).thenReturn(true);
+        when(compositions.findByIdAndUserId(eq("composition-1"), eq("owner@example.com")))
+            .thenReturn(Optional.of(new br.com.buscaproduto.composition.Composition(
+                "composition-1", "owner@example.com", "Teste", List.of(), Instant.now(), Instant.now())));
+        for (String path : List.of("WORK/work-1", "COMPOSITION/composition-1", "LABOR/MO.1.3.01")) {
+            mvc.perform(put("/api/favorites/workspace/" + path).header("Authorization", "Bearer " + a)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.favorite").value(true));
+        }
+        mvc.perform(get("/api/favorites/workspace").header("Authorization", "Bearer " + a))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.WORK[0]").value("work-1"))
+            .andExpect(jsonPath("$.COMPOSITION[0]").value("composition-1"))
+            .andExpect(jsonPath("$.LABOR[0]").value("MO.1.3.01"));
+        mvc.perform(get("/api/favorites").header("Authorization", "Bearer " + a)).andExpect(content().json("[]"));
+        mvc.perform(get("/api/favorites/workspace").header("Authorization", "Bearer " + b))
+            .andExpect(content().json("{\"WORK\":[],\"LABOR\":[],\"COMPOSITION\":[]}"));
+        mvc.perform(put("/api/favorites/workspace/LABOR/MO.1.3.01").header("Authorization", "Bearer " + a)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":false}"))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/favorites/workspace").header("Authorization", "Bearer " + a))
+            .andExpect(jsonPath("$.LABOR").isEmpty());
+    }
+    @Test void workspaceFavoritesRejectOtherUsersEntitiesAndInvalidLaborCodes() throws Exception {
+        var token = register("owner@example.com");
+        when(mongo.exists(any(Query.class), eq(PlanningController.Project.class))).thenReturn(false);
+        for (String path : List.of("WORK/other-work", "COMPOSITION/other-composition")) {
+            mvc.perform(put("/api/favorites/workspace/" + path).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
+                .andExpect(status().isNotFound());
+        }
+        mvc.perform(put("/api/favorites/workspace/LABOR/unknown").header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
+            .andExpect(status().isBadRequest());
         assertThat(fav).isEmpty();
     }
     @Test void protectsAdminWritesAndRequiresAuthenticationForFavorites() throws Exception {
