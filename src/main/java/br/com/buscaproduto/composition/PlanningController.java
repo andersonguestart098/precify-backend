@@ -23,10 +23,22 @@ public class PlanningController {
     private final CompositionRepository compositions;
     public PlanningController(MongoTemplate mongo, CompositionRepository compositions) { this.mongo = mongo; this.compositions = compositions; }
     @Document("user_projects")
-    public record Project(@Id String id, String userId, String name, List<String> compositionIds) {}
+    public record Project(
+            @Id String id,
+            String userId,
+            String name,
+            String projectType,
+            String location,
+            String notes,
+            List<String> compositionIds) {}
     @Document("search_history")
     public record History(@Id String id, String userId, String query, Instant createdAt, int count) {}
-    public record ProjectRequest(@NotBlank @Size(max=80) String name, @NotNull @Size(max=200) List<@NotBlank String> compositionIds) {}
+    public record ProjectRequest(
+            @NotBlank @Size(max=80) String name,
+            @Size(max=40) String projectType,
+            @Size(max=180) String location,
+            @Size(max=1000) String notes,
+            @NotNull @Size(max=200) List<@NotBlank String> compositionIds) {}
     public record SearchRequest(@NotBlank @Size(max=300) String query) {}
     private Query owned(String user) { return Query.query(Criteria.where("userId").is(user)); }
     @GetMapping("/projects")
@@ -41,8 +53,17 @@ public class PlanningController {
     private Project save(Jwt jwt, String id, ProjectRequest body) {
         for (String compositionId : body.compositionIds())
             if (compositions.findByIdAndUserId(compositionId, jwt.getSubject()).isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Composição não pertence à sua conta.");
-        return mongo.save(new Project(id, jwt.getSubject(), body.name().trim(), body.compositionIds().stream().distinct().toList()));
+        return mongo.save(new Project(
+                id,
+                jwt.getSubject(),
+                body.name().trim(),
+                clean(body.projectType()),
+                clean(body.location()),
+                clean(body.notes()),
+                body.compositionIds().stream().distinct().toList()));
     }
+    private static String clean(String value) { return value == null ? "" : value.trim(); }
+
     @DeleteMapping("/projects/{id}")
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         String userId = jwt.getSubject();
