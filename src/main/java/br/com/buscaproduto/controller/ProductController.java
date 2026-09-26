@@ -49,6 +49,9 @@ public class ProductController {
     public Product updateBasic(@PathVariable String id, @Valid @RequestBody ProductBasicUpdateRequest request) {
         return service.updateBasic(
                 id,
+                request.name(),
+                request.brand(),
+                request.model(),
                 request.description(),
                 request.quoteValue(),
                 request.supplier(),
@@ -57,9 +60,12 @@ public class ProductController {
     }
 
     public record ProductBasicUpdateRequest(
+            @NotBlank String name,
+            @NotBlank String brand,
+            @NotBlank String model,
             @NotBlank String description,
             @NotNull @PositiveOrZero BigDecimal quoteValue,
-            @NotBlank String supplier,
+            String supplier,
             String variationCode,
             String optionCode) {
     }
