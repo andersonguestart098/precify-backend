@@ -71,45 +71,49 @@ class CatalogSearchServiceTest {
         assertThat(service.search(new SearchRequest("99", "", List.of(), false), 0, 10).content()).isEmpty();
     }
 
-    @Test void prioritizesOffersBeforeCodeAndAppliesFavoritesBeforePagination() {
+    @Test void keepsCatalogOrderEvenWhenLaterItemHasOfferAndAppliesFavoritesBeforePagination() {
         var other = new CatalogMaterial("1.1.2", "1", "Agregados", "1.1", "Areias",
                 "Areia média", "EM_REVISÃO", "", material.variations());
         when(catalog.findAll()).thenReturn(List.of(material, other));
         when(products.findAll()).thenReturn(List.of(product(List.of(quote("RS", "92", null)), "1.1.2")));
-        assertThat(service.search(request(), 0, 1).content().getFirst().material().materialCode()).isEqualTo("1.1.2");
+        assertThat(service.search(request(), 0, 1).content().getFirst().material().materialCode()).isEqualTo("1.1.1");
         var onlyFavorite = service.search(request(), 0, 1, java.util.Set.of("1.1.1"));
         assertThat(onlyFavorite.totalElements()).isEqualTo(1);
         assertThat(onlyFavorite.content().getFirst().material().materialCode()).isEqualTo("1.1.1");
     }
 
-    @Test void photoAndVariationsRankAheadOfQuoteOnlyBeforePagination() {
-        var complete = new CatalogMaterial("1.1.9", "1", "Agregados", "1.1", "Areias",
-                "Areia com foto", "EM_REVISÃO", "", material.variations());
-        when(catalog.findAll()).thenReturn(List.of(material, complete));
-        var pictured = new Product("photo", "Areia com foto", "", "", "", "", "", "",
+    @Test void photoDoesNotChangeCatalogOrderAndRemainsAvailableOnItsMaterial() {
+        var picturedMaterial = new CatalogMaterial("4.1.1", "4", "Concretos", "4.1", "Concretos Usinados",
+                "Concreto com foto", "EM_REVISÃO", "", material.variations());
+        when(catalog.findAll()).thenReturn(List.of(picturedMaterial, material));
+        var pictured = new Product("photo", "Concreto com foto", "", "", "", "", "", "",
             "https://res.cloudinary.com/demo/image/upload/photo.jpg",
             "https://res.cloudinary.com/demo/image/upload/logo.jpg",
-            Map.of(), List.of(), null, null, "1.1.9", "1.1", "1");
+            Map.of(), List.of(), null, null, "4.1.1", "4.1", "4");
         when(products.findAll()).thenReturn(List.of(
             product(List.of(quote("RS", "92", null)), "1.1.1"), pictured));
-        var first = service.search(request(), 0, 1).content().getFirst();
-        assertThat(first.material().materialCode()).isEqualTo("1.1.9");
-        assertThat(first.imageUrl()).isEqualTo(pictured.imageUrl());
-        assertThat(first.offers()).isEmpty(); // Never invent a price to feature a photo.
+
+        var page = service.search(request(), 0, 10);
+        assertThat(page.content()).extracting(result -> result.material().materialCode())
+            .containsExactly("1.1.1", "4.1.1");
+        var concrete = page.content().get(1);
+        assertThat(concrete.imageUrl()).isEqualTo(pictured.imageUrl());
+        assertThat(concrete.offers()).isEmpty(); // A foto continua disponível sem alterar a prioridade.
         assertThat(service.search(request(filter("state", "RS")), 0, 1).content()
             .getFirst().material().materialCode()).isEqualTo("1.1.1");
     }
 
-    @Test void populatedVariationsOutrankEmptyVariationsAndFeaturedQuoteKeepsOwnPhoto() {
+    @Test void catalogOrderDoesNotDependOnVariationCompletenessAndFeaturedQuoteKeepsOwnPhoto() {
         var empty = new CatalogMaterial("1.1.0", "1", "Agregados", "1.1", "Areias",
                 "Sem opções", "EM_REVISÃO", "", List.of());
         when(catalog.findAll()).thenReturn(List.of(empty, material));
-        assertThat(service.search(request(), 0, 1).content().getFirst().material()).isEqualTo(material);
+        assertThat(service.search(request(), 0, 1).content().getFirst().material()).isEqualTo(empty);
+
         var pictured = new Product("photo", "Areia com foto", "Marca", "", "", "", "", "",
             "https://res.cloudinary.com/demo/image/upload/photo.jpg", null,
             Map.of(), List.of(quote("RS", "180", "1.1.1.V01.001")), null, null, "1.1.1", "1.1", "1");
         when(products.findAll()).thenReturn(List.of(product(List.of(quote("RS", "50", null)), "1.1.1"), pictured));
-        var result = service.search(request(), 0, 1).content().getFirst();
+        var result = service.search(request(filter("materialCode", "1.1.1")), 0, 1).content().getFirst();
         assertThat(result.offers().getFirst().productId()).isEqualTo("photo");
         assertThat(result.offers().getFirst().quote().value()).isEqualByComparingTo("180");
         assertThat(result.imageUrl()).isEqualTo(pictured.imageUrl());
