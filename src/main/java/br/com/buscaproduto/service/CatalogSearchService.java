@@ -78,7 +78,9 @@ public class CatalogSearchService {
             if (offers.isEmpty() && blank(logo)) logo = material.supplierLogoUrl();
             results.add(new Result(material, List.copyOf(offers), image, logo));
         }
-        results.sort(Comparator.comparingInt(CatalogSearchService::completeness).reversed()
+        results.sort(Comparator
+                .comparing((Result r) -> r.material().segmentCode(), CatalogSearchService::compareCodes)
+                .thenComparing(r -> r.material().familyCode(), CatalogSearchService::compareCodes)
                 .thenComparing(r -> r.material().materialCode(), CatalogSearchService::compareCodes));
         int featuredCount = 0;
         for (int i = 0; i < results.size() && featuredCount < 4; i++) {
@@ -135,15 +137,6 @@ public class CatalogSearchService {
             && result.material().variations().stream().flatMap(v -> v.options().stream())
                 .anyMatch(option -> o.optionCode().equals(option.optionCode())));
     }
-    static int completeness(Result result) {
-        long variations = result.material().variations().stream().filter(v -> !v.options().isEmpty()).count();
-        return (eligibleHighlight(result) ? 1000 : 0) + (!blank(result.imageUrl()) ? 400 : 0)
-            + (variations > 0 ? 200 : 0)
-            + (!blank(result.supplierLogoUrl()) ? 40 : 0)
-            + (!result.offers().isEmpty() ? 20 : 0)
-            + (int) Math.min(10, variations);
-    }
-
     private static int compareCodes(String a, String b) {
         String[] aa = a.split("\\."), bb = b.split("\\.");
         for (int i = 0; i < Math.min(aa.length, bb.length); i++) {
