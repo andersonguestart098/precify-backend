@@ -1,5 +1,6 @@
 package br.com.buscaproduto.composition;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -46,7 +47,8 @@ public class LaborController {
             @NotBlank @Size(max = 32) String code,
             @NotBlank @Size(max = 140) String title,
             @NotBlank @Pattern(regexp = "TEAM|THIRD_PARTY") String source,
-            @NotBlank @Pattern(regexp = "TEAM|THIRD_PARTY|BOTH") String origin) {}
+            @NotBlank @Pattern(regexp = "TEAM|THIRD_PARTY|BOTH") String origin,
+            BigDecimal cost) {}
 
     public record LaborPlanRequest(
             @NotBlank @Pattern(regexp = "TEAM|THIRD_PARTY|BOTH") String mode,
@@ -82,6 +84,11 @@ public class LaborController {
             String title = item.title().trim();
             String source = item.source().trim().toUpperCase(Locale.ROOT);
             String origin = item.origin().trim().toUpperCase(Locale.ROOT);
+            BigDecimal cost = item.cost() == null ? BigDecimal.ZERO : item.cost();
+
+            if (cost.signum() < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O custo da mão de obra não pode ser negativo.");
+            }
 
             if ("TEAM".equals(mode) && (!"TEAM".equals(source) || !"TEAM".equals(origin))) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No modo Montar equipe, selecione apenas itens de equipe própria.");
@@ -90,7 +97,7 @@ public class LaborController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No modo Contratar terceiro, selecione apenas especialidades terceirizadas.");
             }
 
-            unique.put(code, new LaborItem(code, title, source, origin));
+            unique.put(code, new LaborItem(code, title, source, origin, cost));
         }
 
         String id = UUID.nameUUIDFromBytes((userId + "\n" + projectId).getBytes(StandardCharsets.UTF_8)).toString();
@@ -112,6 +119,14 @@ public class LaborController {
     }
 
     private LaborPlanResponse response(LaborPlan plan) {
-        return new LaborPlanResponse(plan.projectId(), plan.mode(), plan.items(), plan.updatedAt());
+        List<LaborItem> items = plan.items() == null ? List.of() : plan.items().stream()
+                .map(item -> new LaborItem(
+                        item.code(),
+                        item.title(),
+                        item.source(),
+                        item.origin(),
+                        item.cost() == null ? BigDecimal.ZERO : item.cost()))
+                .toList();
+        return new LaborPlanResponse(plan.projectId(), plan.mode(), items, plan.updatedAt());
     }
 }
