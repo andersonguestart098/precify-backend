@@ -30,8 +30,8 @@ public class ProductService {
         return repository.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
     }
 
-    public Product updateBasic(String id, String description, BigDecimal quoteValue, String supplier,
-            String variationCode, String optionCode) {
+    public Product updateBasic(String id, String name, String brand, String model, String description,
+            BigDecimal quoteValue, String supplier, String variationCode, String optionCode) {
         Product current = findById(id);
         List<Product.Variation> variations = new ArrayList<>(current.variations().size());
         boolean updatedVariation = false;
@@ -42,9 +42,14 @@ public class ProductService {
 
             if (!updatedVariation && sameVariation) {
                 Product.Quote currentQuote = variation.quote();
+                String normalizedSupplier = supplier == null ? "" : supplier.trim();
+                if (quoteValue.signum() > 0 && normalizedSupplier.isBlank()) {
+                    throw new IllegalArgumentException("Informe o fornecedor para uma cotação com valor.");
+                }
+                if (normalizedSupplier.isBlank()) normalizedSupplier = "A definir";
                 Product.Quote updatedQuote = new Product.Quote(
                         quoteValue,
-                        supplier.trim(),
+                        normalizedSupplier,
                         currentQuote.date(),
                         currentQuote.region());
                 variations.add(new Product.Variation(
@@ -63,7 +68,7 @@ public class ProductService {
         }
 
         Product updated = new Product(
-                current.id(), current.name(), current.brand(), current.model(),
+                current.id(), name.trim(), brand.trim(), model.trim(),
                 current.category(), current.segment(), current.material(),
                 description.trim(), current.imageUrl(), current.supplierLogoUrl(),
                 current.attributes(), List.copyOf(variations),
