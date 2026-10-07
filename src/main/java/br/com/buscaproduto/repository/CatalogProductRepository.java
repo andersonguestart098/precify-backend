@@ -7,6 +7,8 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import br.com.buscaproduto.model.CatalogProduct;
 
 public interface CatalogProductRepository extends MongoRepository<CatalogProduct, String> {
+    List<CatalogProduct> findByActiveTrue();
+
     List<CatalogProduct> findByMaterialCodeAndActiveTrueOrderByProductCodeAsc(String materialCode);
 
     List<CatalogProduct> findBySkus_SkuCode(String skuCode);

@@ -58,6 +58,7 @@ public class CatalogSyncService {
     private final CatalogImportRepository imports;
     private final MongoTemplate mongo;
     private final ObjectMapper objectMapper;
+    private final CatalogProductSearchService productSearch;
     private final AtomicBoolean running = new AtomicBoolean();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "catalog-sync");
@@ -66,12 +67,14 @@ public class CatalogSyncService {
     });
 
     public CatalogSyncService(CatalogService catalogService, CatalogMaterialRepository materials,
-            CatalogImportRepository imports, MongoTemplate mongo, ObjectMapper objectMapper) {
+            CatalogImportRepository imports, MongoTemplate mongo, ObjectMapper objectMapper,
+            CatalogProductSearchService productSearch) {
         this.catalogService = catalogService;
         this.materials = materials;
         this.imports = imports;
         this.mongo = mongo;
         this.objectMapper = objectMapper;
+        this.productSearch = productSearch;
     }
 
     @PreDestroy
@@ -144,6 +147,7 @@ public class CatalogSyncService {
             var productChanges = diffProducts(bundle, existingProductState());
             writeProducts(bundle, productChanges);
             var report = report(catalog, materialChanges, bundle, productChanges);
+            productSearch.invalidate();
             finish(record, CatalogImport.SUCCESS, report, List.of());
             LOGGER.info("Catálogo {} sincronizado: {}", record.batchId(), report);
         } catch (RuntimeException exception) {

@@ -124,6 +124,22 @@ e 9.237 produtos inseridos**. Rodar de novo não regrava nada.
 A sincronização valida tudo antes da primeira escrita, nunca apaga, preserva `imageUrl`/`supplierLogoUrl`
 dos materiais e marca com `active=false` os produtos que saírem de uma entrega futura.
 
+## Busca (tela principal)
+
+`POST /api/catalog/products/search?page=0&size=10` com `query`, `segmentCode`, `familyCode`,
+`materialCode`, `brand` e `onlyFavorites` (todos opcionais). Mesma lógica da busca de materiais:
+filtros exatos por código, todos os termos precisam aparecer (sem acento/caixa) e o resultado é
+ordenado por relevância, completude do cadastro e código natural. Relevância: código exato (produto,
+SKU, GTIN, SKU do fabricante) primeiro; depois termo no nome/marca/modelo/códigos e termo na
+hierarquia (material, família, segmento), para que "porcelanato" traga porcelanatos antes de um
+disco de corte que só cita porcelanato no nome. Medidas são normalizadas (`60 x 60` = `60x60`).
+
+A resposta traz `brands` (ignora o filtro de marca) e `materialCounts` (ignora o filtro de material),
+usados pelos filtros Marca e Material do frontend. Os produtos ativos ficam em memória (~9 mil,
+~40 MB), recarregados a cada 5 minutos em background e invalidados ao fim de cada sincronização.
+
+Favoritos de produto: `PUT /api/favorites/workspace/PRODUCT/{productCode}`.
+
 ## Leitura
 
 - `GET /api/catalog/{materialCode}/products` → produtos ativos do material

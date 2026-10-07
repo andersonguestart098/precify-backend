@@ -61,6 +61,7 @@ class AuthSecurityTest {
     @MockitoBean CompositionRepository compositions;
     @MockitoBean CatalogSyncService catalogSync;
     @MockitoBean br.com.buscaproduto.repository.CatalogProductRepository catalogProducts;
+    @MockitoBean CatalogProductSearchService productSearch;
     final Map<String,AppUser> db = new HashMap<>();
     final Map<String,Favorite> fav = new HashMap<>();
     @BeforeEach void setup() {
@@ -212,6 +213,19 @@ class AuthSecurityTest {
         mvc.perform(get("/api/admin/catalog/sync").header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
         mvc.perform(get("/api/catalog/1.1.1/products").header("Authorization", "Bearer " + user)).andExpect(status().isOk());
         mvc.perform(get("/api/catalog/skus").header("Authorization", "Bearer " + user)).andExpect(status().isBadRequest());
+        when(productSearch.search(any(), eq(0), eq(10), isNull())).thenReturn(new br.com.buscaproduto.dto.ProductSearchPage(
+            List.of(), 0, 10, 0, 0, List.of(), Map.of()));
+        mvc.perform(post("/api/catalog/products/search").contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/catalog/products/search").header("Authorization", "Bearer " + user)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"query\":\"areia\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+        when(mongo.exists(any(Query.class), eq(br.com.buscaproduto.model.CatalogProduct.class))).thenReturn(false);
+        mvc.perform(put("/api/favorites/workspace/PRODUCT/1.1.1.P9999").header("Authorization", "Bearer " + user)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}")).andExpect(status().isNotFound());
+        when(mongo.exists(any(Query.class), eq(br.com.buscaproduto.model.CatalogProduct.class))).thenReturn(true);
+        mvc.perform(put("/api/favorites/workspace/PRODUCT/1.1.1.P0022").header("Authorization", "Bearer " + user)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}")).andExpect(status().isOk());
         String admin = auth.login("bootstrap@example.com", "SenhaTeste123!").accessToken();
         mvc.perform(post("/api/admin/catalog/sync").param("dryRun", "true").header("Authorization", "Bearer " + admin))
             .andExpect(status().isOk()).andExpect(jsonPath("$.errors").isEmpty());

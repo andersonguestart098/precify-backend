@@ -40,7 +40,7 @@ public class FavoriteController {
     @GetMapping("/workspace")
     public Map<String, Set<String>> workspace(@AuthenticationPrincipal Jwt jwt) {
         Map<String, Set<String>> result = new LinkedHashMap<>();
-        for (String type : List.of("WORK", "LABOR", "COMPOSITION")) {
+        for (String type : List.of("WORK", "LABOR", "COMPOSITION", "PRODUCT")) {
             result.put(type, favorites.findByUserIdAndEntityType(jwt.getSubject(), type).stream()
                 .map(Favorite::entityId)
                 .filter(Objects::nonNull)
@@ -52,7 +52,7 @@ public class FavoriteController {
 
     @PutMapping("/workspace/{type}/{id}")
     public Selection setWorkspace(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable @Pattern(regexp="WORK|LABOR|COMPOSITION") String type,
+            @PathVariable @Pattern(regexp="WORK|LABOR|COMPOSITION|PRODUCT") String type,
             @PathVariable @NotBlank @Size(max=120) String id,
             @RequestBody Selection selection) {
         if (selection.favorite()) {
@@ -61,6 +61,9 @@ public class FavoriteController {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Obra não encontrada.");
             if ("COMPOSITION".equals(type) && compositions.findByIdAndUserId(id, jwt.getSubject()).isEmpty())
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Composição não encontrada.");
+            if ("PRODUCT".equals(type) && !mongo.exists(Query.query(Criteria.where("_id").is(id).and("active").is(true)),
+                    br.com.buscaproduto.model.CatalogProduct.class))
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado.");
             if ("LABOR".equals(type) && !id.matches("MO\\.[0-9]+\\.[0-9]+\\.[0-9]+"))
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código de mão de obra inválido.");
         }

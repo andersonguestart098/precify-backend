@@ -74,6 +74,7 @@ Variáveis principais:
 - `POST /api/search` (legado, retorna lista)
 - `POST /api/search/paged?page=0&size=10`
 - `GET /actuator/health`
+- `POST /api/catalog/products/search?page=0&size=10` (busca de produtos, nível final)
 - `GET /api/catalog/{materialCode}/products` (produtos documentados do material)
 - `GET /api/catalog/products/{productCode}`
 - `GET /api/catalog/skus?code=|gtin=|manufacturerSku=`
