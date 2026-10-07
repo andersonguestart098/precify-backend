@@ -27,5 +27,7 @@ preservados; registros sem vínculo não aparecem na nova busca.
 
 Publicar backend e frontend desta branch juntos. Não misturar com as versões
 anteriores da tela. Executar mvn test com JDK 21. A suíte valida também a
-integridade do catálogo compactado (1.648 materiais, 3.327 variações,
-1.460 opções).
+integridade do catálogo compactado (1.850 materiais, 4.195 variações,
+1.460 opções) e do lote de produtos (9.237 produtos, 10.513 SKUs).
+
+Produtos documentados e SKUs (níveis 4 e 5) estão em IMPORTACAO_PRODUTOS.md.

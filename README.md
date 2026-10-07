@@ -64,6 +64,7 @@ Variáveis principais:
 - `CORS_ALLOWED_ORIGINS`
 - `PORT`
 - `APP_SEED_DEMO_DATA`
+- `APP_CATALOG_SYNC_ON_STARTUP` (opcional, aplica o lote PRICO embarcado uma vez no boot)
 
 ## Endpoints iniciais
 
@@ -73,6 +74,10 @@ Variáveis principais:
 - `POST /api/search` (legado, retorna lista)
 - `POST /api/search/paged?page=0&size=10`
 - `GET /actuator/health`
+- `GET /api/catalog/{materialCode}/products` (produtos documentados do material)
+- `GET /api/catalog/products/{productCode}`
+- `GET /api/catalog/skus?code=|gtin=|manufacturerSku=`
+- `POST /api/admin/catalog/sync?dryRun=true` e `GET /api/admin/catalog/sync` (ADMIN; ver `IMPORTACAO_PRODUTOS.md`)
 
 ## Exemplo de busca
 

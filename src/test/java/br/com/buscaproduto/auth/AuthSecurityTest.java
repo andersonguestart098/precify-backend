@@ -44,7 +44,8 @@ class AuthSecurityTest {
     @SpringBootConfiguration
     @EnableAutoConfiguration(exclude={MongoAutoConfiguration.class, MongoDataAutoConfiguration.class})
     @Import({SecurityConfig.class, WebConfig.class, AuthService.class, AuthController.class, UserController.class, CatalogDetailController.class,
-        FavoriteController.class, CatalogSearchService.class, CatalogSearchController.class, MediaController.class, PlanningController.class})
+        FavoriteController.class, CatalogSearchService.class, CatalogSearchController.class, MediaController.class, PlanningController.class,
+        CatalogAdminController.class, CatalogProductController.class})
     static class TestApp {}
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -58,6 +59,8 @@ class AuthSecurityTest {
     @MockitoBean GridFsTemplate files;
     @MockitoBean MongoTemplate mongo;
     @MockitoBean CompositionRepository compositions;
+    @MockitoBean CatalogSyncService catalogSync;
+    @MockitoBean br.com.buscaproduto.repository.CatalogProductRepository catalogProducts;
     final Map<String,AppUser> db = new HashMap<>();
     final Map<String,Favorite> fav = new HashMap<>();
     @BeforeEach void setup() {
@@ -197,6 +200,22 @@ class AuthSecurityTest {
         mvc.perform(options("/api/favorites").header("Origin","https://busca-produto-frontend.vercel.app")
             .header("Access-Control-Request-Method","GET").header("Access-Control-Request-Headers","authorization,ngrok-skip-browser-warning"))
             .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin","https://busca-produto-frontend.vercel.app"));
+    }
+    @Test void catalogSyncIsAdminOnlyAndProductReadsRequireJwt() throws Exception {
+        when(catalogSync.plan()).thenReturn(new CatalogSyncService.Plan(null, false, null, List.of()));
+        when(catalogProducts.findByMaterialCodeAndActiveTrueOrderByProductCodeAsc("1.1.1")).thenReturn(List.of());
+        mvc.perform(post("/api/admin/catalog/sync").param("dryRun", "true")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/catalog/1.1.1/products")).andExpect(status().isUnauthorized());
+        String user = register("reader@example.com");
+        mvc.perform(post("/api/admin/catalog/sync").param("dryRun", "true").header("Authorization", "Bearer " + user))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/catalog/sync").header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/catalog/1.1.1/products").header("Authorization", "Bearer " + user)).andExpect(status().isOk());
+        mvc.perform(get("/api/catalog/skus").header("Authorization", "Bearer " + user)).andExpect(status().isBadRequest());
+        String admin = auth.login("bootstrap@example.com", "SenhaTeste123!").accessToken();
+        mvc.perform(post("/api/admin/catalog/sync").param("dryRun", "true").header("Authorization", "Bearer " + admin))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.errors").isEmpty());
+        verify(catalogSync, never()).start();
     }
     @Test void usersCanOnlyBeCreatedByAdminAndPublicSignupIsDisabled() throws Exception {
         String body = "{\"name\":\"New admin\",\"email\":\"second@example.com\",\"password\":\"SenhaTeste123!\",\"role\":\"ADMIN\"}";

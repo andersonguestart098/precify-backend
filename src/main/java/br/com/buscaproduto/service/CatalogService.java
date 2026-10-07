@@ -24,7 +24,7 @@ import br.com.buscaproduto.repository.CatalogMaterialRepository;
 
 @Service
 public class CatalogService {
-    private static final String CATALOG_RESOURCE = "catalog/prico_variacoes.ndjson.gz.b64";
+    static final String CATALOG_RESOURCE = "catalog/prico_variacoes.ndjson.gz.b64";
 
     private final CatalogMaterialRepository repository;
     private final ObjectMapper objectMapper;
@@ -39,7 +39,15 @@ public class CatalogService {
         return repository.findAllByOrderBySegmentCodeAscFamilyCodeAscMaterialCodeAsc();
     }
 
+    /** First load of an empty collection. Populated databases are updated by {@link CatalogSyncService}. */
     public synchronized long importCatalog() {
+        List<CatalogMaterial> documents = readBundledCatalog();
+        repository.saveAll(documents);
+        return documents.size();
+    }
+
+    /** Parses the bundled catalog (one row per option) into material documents, without touching the database. */
+    public List<CatalogMaterial> readBundledCatalog() {
         Map<String, MaterialBuilder> materials = new LinkedHashMap<>();
         try (var encoded = new ClassPathResource(CATALOG_RESOURCE).getInputStream()) {
             byte[] compressed = Base64.getMimeDecoder().decode(encoded.readAllBytes());
@@ -57,10 +65,7 @@ public class CatalogService {
         } catch (Exception exception) {
             throw new IllegalStateException("Não foi possível importar o catálogo PRICO", exception);
         }
-
-        List<CatalogMaterial> documents = materials.values().stream().map(MaterialBuilder::build).toList();
-        repository.saveAll(documents);
-        return documents.size();
+        return materials.values().stream().map(MaterialBuilder::build).toList();
     }
 
     private static String text(Map<String, Object> row, String key) {
@@ -73,6 +78,12 @@ public class CatalogService {
         return value instanceof Number number ? number.intValue() : 0;
     }
 
+    private static List<String> texts(Map<String, Object> row, String key) {
+        Object value = row.get(key);
+        if (!(value instanceof List<?> list)) return List.of();
+        return list.stream().filter(java.util.Objects::nonNull).map(Object::toString).toList();
+    }
+
     private static final class MaterialBuilder {
         private final Map<String, Object> material;
         private final Map<String, VariationBuilder> variations = new LinkedHashMap<>();
@@ -81,6 +92,7 @@ public class CatalogService {
 
         private void add(Map<String, Object> row) {
             String variationCode = text(row, "Cod. VR");
+            if (variationCode == null || variationCode.isBlank()) return;
             VariationBuilder variation = variations.computeIfAbsent(variationCode, ignored -> new VariationBuilder(row));
             String optionCode = text(row, "Cod. OP");
             if (optionCode != null && !optionCode.isBlank()) variation.options.putIfAbsent(optionCode, row);
@@ -113,7 +125,8 @@ public class CatalogService {
             normalizedOptions.sort(Comparator.comparingInt(CatalogOption::order));
             return new CatalogVariation(text(variation, "Cod. VR"), text(variation, "VARIAÇÃO"),
                     text(variation, "TIPO"), text(variation, "OBRIGATÓRIA"), number(variation, "ORDEM_VR"),
-                    List.copyOf(normalizedOptions));
+                    List.copyOf(normalizedOptions), text(variation, "FORMATO"), texts(variation, "UNIDADES_ACEITAS"),
+                    text(variation, "REGRA_IDENTIDADE"), text(variation, "STATUS_CONTRATO"));
         }
     }
 }

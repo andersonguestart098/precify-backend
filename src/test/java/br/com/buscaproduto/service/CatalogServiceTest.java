@@ -19,12 +19,16 @@ class CatalogServiceTest {
             return saved;
         });
         var service = new CatalogService(repository, new ObjectMapper());
-        assertThat(service.importCatalog()).isEqualTo(1648);
-        assertThat(saved.stream().map(CatalogMaterial::materialCode).distinct().count()).isEqualTo(1648);
+        // Catálogo v2 (contrato do cliente de 06/10/2026 + materiais/variações legados preservados).
+        assertThat(service.importCatalog()).isEqualTo(1850);
+        assertThat(saved.stream().map(CatalogMaterial::materialCode).distinct().count()).isEqualTo(1850);
         assertThat(saved.stream().map(CatalogMaterial::segmentCode).distinct().count()).isEqualTo(47);
-        assertThat(saved.stream().map(CatalogMaterial::familyCode).distinct().count()).isEqualTo(297);
-        assertThat(saved.stream().mapToInt(m -> m.variations().size()).sum()).isEqualTo(3327);
+        assertThat(saved.stream().map(CatalogMaterial::familyCode).distinct().count()).isEqualTo(344);
+        assertThat(saved.stream().mapToInt(m -> m.variations().size()).sum()).isEqualTo(4195);
         assertThat(saved.stream().flatMap(m -> m.variations().stream()).mapToInt(v -> v.options().size()).sum()).isEqualTo(1460);
+        assertThat(saved).allSatisfy(m -> assertThat(m.status()).isNotBlank());
+        assertThat(saved.stream().flatMap(m -> m.variations().stream())
+                .filter(v -> "ATIVO".equals(v.contractStatus())).count()).isEqualTo(4165);
         var codes = saved.stream().map(CatalogMaterial::materialCode).toList();
         saved.clear();
         service.importCatalog();

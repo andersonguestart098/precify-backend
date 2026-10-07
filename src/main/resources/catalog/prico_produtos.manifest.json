@@ -1,0 +1,19 @@
+{
+  "batchId": "PRICO_20261006_69814e49",
+  "sourceFile": "PRICO_Compilado_Total_Final_Compatibilizado_20261006.xlsx",
+  "sourceSha256": "69814e4953cb75ae4a1b2b952cb1f3d2df4b2e8a6fba669a618b9e3d46ac9a98",
+  "sourceDate": "2026-10-06",
+  "productsSha256": "f1a8b612d1d4c5ddaf121dbb7f99b039633b5f66dac621c3f8e2a9c97834b31a",
+  "generatedBy": "tools/prico/consolidar_prico.py",
+  "rule": "Somente 37_CATALOGO_APTO com PROTOCOLO PARA INSERÇÃO = OK e controles do registro conferidos.",
+  "observation": "Inserção provisória somente com protocolo OK após recálculo; SKU documental, estoque/preço/entrega não garantidos.",
+  "counts": {
+    "materials": 1850,
+    "variations": 4195,
+    "options": 1460,
+    "products": 9237,
+    "skus": 10513,
+    "values": 12193,
+    "excludedRows": 0
+  }
+}
