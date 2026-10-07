@@ -1,6 +1,8 @@
 package br.com.buscaproduto.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -11,6 +13,7 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import br.com.buscaproduto.dto.CatalogSearchPage;
 import br.com.buscaproduto.dto.ProductSearchPage;
 import br.com.buscaproduto.dto.ProductSearchRequest;
 import br.com.buscaproduto.model.CatalogMaterial;
@@ -20,7 +23,8 @@ import br.com.buscaproduto.repository.CatalogProductRepository;
 class CatalogProductSearchServiceTest {
     final CatalogProductRepository repository = mock(CatalogProductRepository.class);
     final CatalogService catalog = mock(CatalogService.class);
-    final CatalogProductSearchService service = new CatalogProductSearchService(repository, catalog);
+    final CatalogSearchService materialSearch = mock(CatalogSearchService.class);
+    final CatalogProductSearchService service = new CatalogProductSearchService(repository, catalog, materialSearch);
 
     CatalogProductSearchServiceTest() {
         when(catalog.findAll()).thenReturn(List.of(
@@ -96,11 +100,43 @@ class CatalogProductSearchServiceTest {
         when(repo.findByActiveTrue()).thenReturn(List.of(
                 product("40.1.5.P0003", "40.1.5", "Norton Pro Porcelanato", "Norton", "COMPLETA", sku("40.1.5.P0003.S0001", null, null, "1 un")),
                 product("7.1.1.P8001", "7.1.1", "Mineral", "Portobello", "PARCIAL", sku("7.1.1.P8001.S0001", null, null, "caixa"))));
-        var search = new CatalogProductSearchService(repo, cat);
+        var search = new CatalogProductSearchService(repo, cat, mock(CatalogSearchService.class));
         assertThat(codes(search.search(request("porcelanato", null, null, null, null), 0, 10, null)))
                 .containsExactly("7.1.1.P8001", "40.1.5.P0003");
         assertThat(codes(search.search(request("40.1.5.P0003.S0001", null, null, null, null), 0, 10, null)))
                 .containsExactly("40.1.5.P0003");
+    }
+
+    @Test void materialWithoutProductsIsListedAsTheMaterialItself() {
+        var repo = mock(CatalogProductRepository.class);
+        var cat = mock(CatalogService.class);
+        var materials = mock(CatalogSearchService.class);
+        var solo = material("1.5.4", "Solo laterítico", "1.5", "Solos", "1", "Agregados, Solos e Minerais");
+        when(cat.findAll()).thenReturn(List.of(solo,
+                material("1.1.1", "Areia fina natural", "1.1", "Areias", "1", "Agregados, Solos e Minerais")));
+        when(repo.findByActiveTrue()).thenReturn(List.of(product("1.1.1.P0022", "1.1.1", "Areia fina natural de Jacareí",
+                "JRCAMPEÃO", "PARCIAL", sku("1.1.1.P0022.S0001", null, null, "saco de 20 kg"))));
+        when(materials.search(any(), eq(0), eq(1), eq(Set.of("1.5.4")))).thenReturn(new CatalogSearchPage(
+                List.of(new CatalogSearchPage.Result(solo, List.of(), "/api/media/0123456789abcdef01234567", null)), 0, 1, 1, 1));
+        var search = new CatalogProductSearchService(repo, cat, materials);
+
+        var onlySolo = search.search(request(null, null, null, "1.5.4", null), 0, 10, null);
+        assertThat(onlySolo.totalElements()).isEqualTo(1);
+        var card = onlySolo.content().get(0);
+        assertThat(card.type()).isEqualTo(ProductSearchPage.MATERIAL);
+        assertThat(card.product()).isNull();
+        assertThat(card.materialName()).isEqualTo("Solo laterítico");
+        assertThat(card.material().imageUrl()).isEqualTo("/api/media/0123456789abcdef01234567");
+
+        var segment = search.search(request(null, "1", null, null, null), 0, 10, null);
+        assertThat(codes(segment)).containsExactly("1.1.1.P0022", "1.5.4");
+        assertThat(segment.productElements()).isEqualTo(1);
+        assertThat(segment.materialElements()).isEqualTo(1);
+        assertThat(segment.materialCounts()).containsOnlyKeys("1.1.1");
+
+        assertThat(codes(search.search(request("laterítico", null, null, null, null), 0, 10, null))).containsExactly("1.5.4");
+        assertThat(search.search(request(null, null, null, null, "jrcampeão"), 0, 10, null).materialElements()).isZero();
+        assertThat(search.search(request(null, null, null, null, null), 0, 10, Set.of("1.1.1.P0022")).materialElements()).isZero();
     }
 
     @Test void naturalCodeOrder() {
@@ -110,7 +146,8 @@ class CatalogProductSearchServiceTest {
     }
 
     private static List<String> codes(ProductSearchPage page) {
-        return page.content().stream().map(result -> result.product().productCode()).toList();
+        return page.content().stream().map(result -> result.product() != null
+                ? result.product().productCode() : result.material().material().materialCode()).toList();
     }
 
     private static ProductSearchRequest request(String query, String segment, String family, String material, String brand) {

@@ -214,7 +214,7 @@ class AuthSecurityTest {
         mvc.perform(get("/api/catalog/1.1.1/products").header("Authorization", "Bearer " + user)).andExpect(status().isOk());
         mvc.perform(get("/api/catalog/skus").header("Authorization", "Bearer " + user)).andExpect(status().isBadRequest());
         when(productSearch.search(any(), eq(0), eq(10), isNull())).thenReturn(new br.com.buscaproduto.dto.ProductSearchPage(
-            List.of(), 0, 10, 0, 0, List.of(), Map.of()));
+            List.of(), 0, 10, 0, 0, 0, 0, List.of(), Map.of()));
         mvc.perform(post("/api/catalog/products/search").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/catalog/products/search").header("Authorization", "Bearer " + user)
