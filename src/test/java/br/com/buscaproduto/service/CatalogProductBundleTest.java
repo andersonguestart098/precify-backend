@@ -68,7 +68,7 @@ class CatalogProductBundleTest {
     @Test void validationBlocksOrphansForeignVariationsAndDuplicatedSkus() {
         var catalog = List.of(new CatalogMaterial("1.1.1", "1", "Agregados", "1.1", "Areias", "Areia fina natural",
                 "EM_REVISÃO", "", List.of(new CatalogMaterial.CatalogVariation("1.1.1.V01", "Unidade", "UNIDADE", "SIM", 1,
-                        List.of(new CatalogMaterial.CatalogOption("1.1.1.V01.001", "m³", "m³", 1, "EM_REVISÃO")))))));
+                        List.of(new CatalogMaterial.CatalogOption("1.1.1.V01.001", "m³", "m³", 1, "EM_REVISÃO"))))));
         var ok = product("1.1.1.P0001", "1.1.1", sku("1.1.1.P0001.S0001", value("1.1.1.V01", "1.1.1.V01.001")));
         var orphan = product("9.9.9.P0001", "9.9.9", sku("9.9.9.P0001.S0001"));
         var foreign = product("1.1.1.P0002", "1.1.1", sku("1.1.1.P0002.S0001", value("2.1.1.V01", null)));
