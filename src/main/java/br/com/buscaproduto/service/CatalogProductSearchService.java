@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,11 +34,10 @@ import br.com.buscaproduto.repository.CatalogProductRepository;
 /**
  * Search over catalog products (last level). Same rules as the material search: exact code
  * filters, every free-text term must be present (accent/case insensitive) and results are
- * ranked by relevance, then by how complete the record is, then by natural code order.
+ * ranked by relevance, then by hierarchy: natural code order (1.1.1.P0001, 1.1.1.P0002, 1.1.2..., 2.1.1...).
  *
  * The product is the last level and its parent is the material: a material that has no active
- * product is listed as the material itself, so nothing disappears from the screen. Ties go to the
- * product (it is the more specific result).
+ * product is listed as the material itself, in its place in the hierarchy, so nothing disappears from the screen.
  *
  * The active products are kept in memory (about 9 thousand documents) and refreshed every
  * few minutes in background, so a search never scans MongoDB. A catalog sync invalidates it.
@@ -53,6 +53,8 @@ public class CatalogProductSearchService {
     private final CatalogSearchService materialSearch;
     private final AtomicBoolean reloading = new AtomicBoolean();
     private volatile Index index;
+    private final AtomicBoolean reloadingCards = new AtomicBoolean();
+    private volatile Cards cards;
 
     public CatalogProductSearchService(CatalogProductRepository repository, CatalogService catalog,
             CatalogSearchService materialSearch) {
@@ -61,20 +63,31 @@ public class CatalogProductSearchService {
         this.materialSearch = materialSearch;
     }
 
-    record Entry(CatalogProduct product, CatalogMaterial material, String brandKey, String strong, String haystack,
-            List<String> hierarchy, Set<String> codes, int completeness) {
+    record Entry(CatalogProduct product, CatalogMaterial material, String brandKey, String strong, String named,
+            String haystack, List<String> hierarchy, Set<String> codes) {
     }
 
     /** Material with no active product: it stands in for its missing children in the listing. */
     record MaterialEntry(CatalogMaterial material, String haystack, List<String> hierarchy) {
     }
 
-    record Index(List<Entry> entries, List<MaterialEntry> childless, Instant loadedAt) {
+    /** {@code order}: position of every product/material code in the hierarchy, computed once per load. */
+    record Index(List<Entry> entries, List<MaterialEntry> childless, Map<String, Integer> order, Instant loadedAt) {
+    }
+
+    /** Cards of the childless materials, keyed by material code. */
+    record Cards(Map<String, CatalogSearchPage.Result> byCode, Instant loadedAt) {
     }
 
     /** Next search reloads products and catalog names from the database. */
     public void invalidate() {
         index = null;
+        cards = null;
+    }
+
+    /** A legacy product (offers, quote, images) changed: rebuild the material cards on the next search. */
+    public void invalidateMaterialCards() {
+        cards = null;
     }
 
     public ProductSearchPage search(ProductSearchRequest request, int page, int size, Set<String> allowedCodes) {
@@ -121,15 +134,20 @@ public class CatalogProductSearchService {
             }
         }
 
-        record Scored(Entry product, MaterialEntry material, String code, int relevance, int completeness) {}
+        record Scored(Entry product, MaterialEntry material, String code, int relevance, int position) {}
+        Map<String, Integer> order = current.order();
         List<Scored> ranked = new ArrayList<>(results.size() + materials.size());
-        for (Entry entry : results)
-            ranked.add(new Scored(entry, null, entry.product().productCode(), relevance(entry, terms, query), entry.completeness()));
-        for (MaterialEntry entry : materials)
-            ranked.add(new Scored(null, entry, entry.material().materialCode(), materialRelevance(entry, terms, query), -1));
-        ranked.sort(Comparator.comparingInt(Scored::relevance).reversed()
-                .thenComparing(Comparator.comparingInt(Scored::completeness).reversed())
-                .thenComparing(Scored::code, CatalogProductSearchService::compareCodes));
+        for (Entry entry : results) {
+            String code = entry.product().productCode();
+            ranked.add(new Scored(entry, null, code, relevance(entry, terms, query), order.get(code)));
+        }
+        for (MaterialEntry entry : materials) {
+            String code = entry.material().materialCode();
+            ranked.add(new Scored(null, entry, code, materialRelevance(entry, terms, query), order.get(code)));
+        }
+        // The code is the hierarchy (segment.family.material.Pproduct), so code order walks the catalog tree.
+        // Its position is precomputed: comparing ints keeps this sort cheap on every search.
+        ranked.sort(Comparator.comparingInt(Scored::relevance).reversed().thenComparingInt(Scored::position));
 
         int from = (int) Math.min((long) page * size, ranked.size());
         int to = (int) Math.min((long) from + size, ranked.size());
@@ -157,11 +175,40 @@ public class CatalogProductSearchService {
                 results.size(), materials.size(), brands, materialCounts);
     }
 
-    /** Same card the material view shows (offers, image, supplier logo), only for materials on this page. */
+    /**
+     * Same card the material view shows (offers, image, supplier logo). Building one scans every material and
+     * legacy product, so the cards of all childless materials are built together and cached like the index.
+     */
     private Map<String, CatalogSearchPage.Result> materialCards(Set<String> codes) {
         if (codes.isEmpty()) return Map.of();
-        return materialSearch.search(new SearchRequest(null, null, List.of(), false), 0, codes.size(), codes).content().stream()
+        Cards current = cards;
+        if (current == null) {
+            synchronized (this) {
+                if (cards == null) cards = loadCards();
+                return cards.byCode();
+            }
+        }
+        if (current.loadedAt().plus(TTL).isBefore(Instant.now()) && reloadingCards.compareAndSet(false, true)) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    cards = loadCards();
+                } catch (RuntimeException exception) {
+                    LOGGER.warn("Falha ao recarregar os cards de materiais; mantendo os anteriores.", exception);
+                } finally {
+                    reloadingCards.set(false);
+                }
+            });
+        }
+        return current.byCode();
+    }
+
+    private Cards loadCards() {
+        Set<String> codes = index().childless().stream().map(entry -> entry.material().materialCode()).collect(Collectors.toSet());
+        if (codes.isEmpty()) return new Cards(Map.of(), Instant.now());
+        Map<String, CatalogSearchPage.Result> byCode = materialSearch.search(new SearchRequest(null, null, List.of(), false),
+                        0, codes.size(), codes).content().stream()
                 .collect(Collectors.toMap(result -> result.material().materialCode(), Function.identity(), (a, b) -> a));
+        return new Cards(byCode, Instant.now());
     }
 
     // ------------------------------------------------------------------------------------------
@@ -199,9 +246,14 @@ public class CatalogProductSearchService {
                 .filter(material -> !withProducts.contains(material.materialCode()))
                 .map(CatalogProductSearchService::materialEntry)
                 .toList();
+        List<String> codes = Stream.concat(entries.stream().map(entry -> entry.product().productCode()),
+                        childless.stream().map(entry -> entry.material().materialCode()))
+                .sorted(CatalogProductSearchService::compareCodes).toList();
+        Map<String, Integer> order = new HashMap<>(codes.size() * 2);
+        for (String code : codes) order.putIfAbsent(code, order.size());
         LOGGER.info("Índice de produtos do catálogo carregado: {} produtos, {} materiais sem produto.",
                 entries.size(), childless.size());
-        return new Index(entries, childless, Instant.now());
+        return new Index(entries, childless, Map.copyOf(order), Instant.now());
     }
 
     static Entry entry(CatalogProduct product, CatalogMaterial material) {
@@ -211,8 +263,8 @@ public class CatalogProductSearchService {
                 .filter(Objects::nonNull).map(CatalogProductSearchService::norm).filter(code -> !code.isEmpty())
                 .collect(Collectors.toUnmodifiableSet());
         String codes = String.join(" ", codeSet);
-        String strong = norm(String.join(" ", nonNull(product.productCode(), product.name(), product.brand(),
-                product.manufacturer(), product.model(), codes)));
+        String named = norm(String.join(" ", nonNull(product.name(), product.brand(), product.manufacturer(), product.model())));
+        String strong = norm(String.join(" ", nonNull(product.productCode(), named, codes)));
         String details = skus.stream()
                 .flatMap(sku -> Stream.concat(Stream.of(sku.presentation(), sku.commercialUnit()),
                         (sku.values() == null ? List.<CatalogProduct.SkuValue>of() : sku.values()).stream()
@@ -222,8 +274,7 @@ public class CatalogProductSearchService {
                 material.segmentName()).map(CatalogProductSearchService::norm).toList();
         String haystack = strong + " " + norm(details + " " + (material == null ? product.materialCode() : material.materialCode())
                 + " " + String.join(" ", hierarchy));
-        return new Entry(product, material, norm(product.brand()), strong, haystack, hierarchy, codeSet,
-                completeness(product));
+        return new Entry(product, material, norm(product.brand()), strong, named, haystack, hierarchy, codeSet);
     }
 
     static MaterialEntry materialEntry(CatalogMaterial material) {
@@ -243,29 +294,19 @@ public class CatalogProductSearchService {
         return score;
     }
 
-    static int completeness(CatalogProduct product) {
-        List<CatalogProduct.Sku> skus = product.skus() == null ? List.of() : product.skus();
-        String coverage = norm(product.documentalCoverage());
-        int values = skus.stream().mapToInt(sku -> sku.values() == null ? 0 : sku.values().size()).max().orElse(0);
-        return (!isBlank(product.imageUrl()) ? 1000 : 0)
-                + (coverage.startsWith("completa") || coverage.startsWith("integral") ? 100 : 0)
-                + Math.min(values, 5) * 10
-                + (skus.stream().anyMatch(sku -> !isBlank(sku.gtin())) ? 5 : 0)
-                + (skus.stream().anyMatch(sku -> !isBlank(sku.manufacturerSku())) ? 3 : 0)
-                + (!isBlank(product.brand()) ? 2 : 0);
-    }
 
     /**
      * Exact code (product, SKU, GTIN, manufacturer SKU) first. Then, per term: found in the product's own
-     * name/brand/model/codes (+3) and in each level of its hierarchy (+2 for material, family, segment), so
-     * "porcelanato" ranks porcelain tiles above a cutting disc that only mentions porcelain in its name.
+     * name/brand/model (+3) or only inside one of its codes (+1), and in each level of its hierarchy (+2 for
+     * material, family, segment), so "porcelanato" ranks porcelain tiles above a cutting disc that only
+     * mentions porcelain in its name, and "5232" ranks the "VIP 5232" camera above a GTIN that merely contains it.
      */
     static int relevance(Entry entry, List<String> terms, String query) {
         if (terms.isEmpty()) return 0;
         int score = 0;
         if (!query.isEmpty() && entry.codes().contains(query)) score += 1000;
         for (String term : terms) {
-            score += 1 + (entry.strong().contains(term) ? 3 : 0);
+            score += 1 + (entry.named().contains(term) ? 3 : entry.strong().contains(term) ? 1 : 0);
             for (String level : entry.hierarchy()) if (level.contains(term)) score += 2;
         }
         return score;

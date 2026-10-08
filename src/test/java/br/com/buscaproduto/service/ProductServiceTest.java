@@ -19,7 +19,7 @@ import br.com.buscaproduto.repository.ProductRepository;
 class ProductServiceTest {
     private final ProductRepository repository = mock(ProductRepository.class);
     private final CatalogService catalog = mock(CatalogService.class);
-    private final ProductService service = new ProductService(repository, catalog);
+    private final ProductService service = new ProductService(repository, catalog, mock(CatalogProductSearchService.class));
 
     private Product pendingProduct() {
         var quote = new Product.Quote(BigDecimal.ZERO, "A definir", LocalDate.of(2026, 9, 26), "RS");

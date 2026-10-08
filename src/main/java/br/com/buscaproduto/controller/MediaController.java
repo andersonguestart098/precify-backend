@@ -13,12 +13,16 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import br.com.buscaproduto.model.Product;
 import br.com.buscaproduto.repository.ProductRepository;
+import br.com.buscaproduto.service.CatalogProductSearchService;
 
 @RestController
 public class MediaController {
     private final GridFsTemplate files;
     private final ProductRepository products;
-    public MediaController(GridFsTemplate files, ProductRepository products) { this.files = files; this.products = products; }
+    private final CatalogProductSearchService productSearch;
+    public MediaController(GridFsTemplate files, ProductRepository products, CatalogProductSearchService productSearch) {
+        this.files = files; this.products = products; this.productSearch = productSearch;
+    }
 
     @PostMapping("/api/media")
     public Map<String, String> upload(@RequestParam("file") MultipartFile file) throws IOException {
@@ -82,6 +86,8 @@ public class MediaController {
             p.description(), images.imageUrl() == null ? p.imageUrl() : images.imageUrl(),
             images.supplierLogoUrl() == null ? p.supplierLogoUrl() : images.supplierLogoUrl(),
             p.attributes(), p.variations(), p.createdAt(), Instant.now(), p.materialCode(), p.familyCode(), p.segmentCode());
-        return products.save(updated);
+        Product saved = products.save(updated);
+        productSearch.invalidateMaterialCards();
+        return saved;
     }
 }

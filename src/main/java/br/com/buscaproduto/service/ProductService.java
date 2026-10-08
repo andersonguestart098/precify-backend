@@ -16,10 +16,13 @@ import br.com.buscaproduto.repository.ProductRepository;
 public class ProductService {
     private final ProductRepository repository;
     private final CatalogService catalogService;
+    private final CatalogProductSearchService productSearch;
 
-    public ProductService(ProductRepository repository, CatalogService catalogService) {
+    public ProductService(ProductRepository repository, CatalogService catalogService,
+            CatalogProductSearchService productSearch) {
         this.repository = repository;
         this.catalogService = catalogService;
+        this.productSearch = productSearch;
     }
 
     public List<Product> findAll() {
@@ -74,7 +77,9 @@ public class ProductService {
                 current.attributes(), List.copyOf(variations),
                 current.createdAt(), Instant.now(),
                 current.materialCode(), current.familyCode(), current.segmentCode());
-        return repository.save(updated);
+        Product saved = repository.save(updated);
+        productSearch.invalidateMaterialCards();
+        return saved;
     }
 
     private String normalizeCode(String value) {
@@ -105,6 +110,8 @@ public class ProductService {
                 product.attributes(), product.variations(),
                 product.createdAt() == null ? now : product.createdAt(), now,
                 material.materialCode(), material.familyCode(), material.segmentCode());
-        return repository.save(prepared);
+        Product saved = repository.save(prepared);
+        productSearch.invalidateMaterialCards();
+        return saved;
     }
 }

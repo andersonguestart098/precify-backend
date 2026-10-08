@@ -13,7 +13,7 @@ import br.com.buscaproduto.repository.ProductRepository;
 class ProductCatalogValidationTest {
     final ProductRepository repository = mock(ProductRepository.class);
     final CatalogService catalog = mock(CatalogService.class);
-    final ProductService service = new ProductService(repository, catalog);
+    final ProductService service = new ProductService(repository, catalog, mock(CatalogProductSearchService.class));
     ProductCatalogValidationTest() {
         when(catalog.findAll()).thenReturn(List.of(new CatalogMaterial("1.1.1", "1", "Agregados", "1.1",
             "Areias", "Areia fina natural", "EM_REVISÃO", "", List.of(

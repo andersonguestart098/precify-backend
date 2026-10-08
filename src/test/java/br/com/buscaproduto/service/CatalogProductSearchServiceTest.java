@@ -45,7 +45,7 @@ class CatalogProductSearchServiceTest {
 
     @Test void filtersByHierarchyAndAllTermsIgnoringAccents() {
         var page = service.search(request("areia media", null, null, null, null), 0, 10, null);
-        assertThat(codes(page)).containsExactly("1.1.2.P0008", "1.1.2.P0003");
+        assertThat(codes(page)).containsExactly("1.1.2.P0003", "1.1.2.P0008");
         assertThat(codes(service.search(request("jacarei", null, null, null, null), 0, 10, null))).containsExactly("1.1.1.P0022");
         assertThat(codes(service.search(request(null, "1", null, null, null), 0, 10, null))).hasSize(3);
         assertThat(codes(service.search(request(null, null, "30.1", null, null), 0, 10, null))).containsExactly("30.1.1.P0005");
@@ -59,16 +59,18 @@ class CatalogProductSearchServiceTest {
         assertThat(codes(service.search(request("1.1.2.p0003", null, null, null, null), 0, 10, null))).first().isEqualTo("1.1.2.P0003");
     }
 
-    @Test void completeRecordsComeFirstWithoutQuery() {
+    @Test void followsTheHierarchyWithoutQuery() {
+        assertThat(codes(service.search(request(null, null, null, null, null), 0, 10, null)))
+                .containsExactly("1.1.1.P0022", "1.1.2.P0003", "1.1.2.P0008", "30.1.1.P0005");
         var page = service.search(request(null, null, null, "1.1.2", null), 0, 10, null);
-        assertThat(codes(page)).containsExactly("1.1.2.P0008", "1.1.2.P0003");
+        assertThat(codes(page)).containsExactly("1.1.2.P0003", "1.1.2.P0008");
         assertThat(page.content().get(0).materialName()).isEqualTo("Areia média natural");
         assertThat(page.content().get(0).familyName()).isEqualTo("Areias");
     }
 
     @Test void facetsIgnoreTheirOwnFilterSoOtherChoicesStayVisible() {
         var page = service.search(request(null, "1", null, null, "mb areias"), 0, 10, null);
-        assertThat(codes(page)).containsExactly("1.1.2.P0008", "1.1.2.P0003");
+        assertThat(codes(page)).containsExactly("1.1.2.P0003", "1.1.2.P0008");
         assertThat(page.brands()).extracting(ProductSearchPage.Facet::name).containsExactly("MB Areias", "JRCAMPEÃO");
         assertThat(page.materialCounts()).containsEntry("1.1.2", 2L).doesNotContainKey("1.1.1");
         var byMaterial = service.search(request(null, null, null, "1.1.1", null), 0, 10, null);
@@ -105,6 +107,22 @@ class CatalogProductSearchServiceTest {
                 .containsExactly("7.1.1.P8001", "40.1.5.P0003");
         assertThat(codes(search.search(request("40.1.5.P0003.S0001", null, null, null, null), 0, 10, null)))
                 .containsExactly("40.1.5.P0003");
+    }
+
+    @Test void followsTheHierarchyAndPutsNameMatchAboveDigitsInsideAGtin() {
+        var repo = mock(CatalogProductRepository.class);
+        var cat = mock(CatalogService.class);
+        when(cat.findAll()).thenReturn(List.of(
+                material("8.2.3", "Soleira de mármore", "8.2", "Soleiras", "8", "Rochas"),
+                material("30.4.3", "Câmera PTZ", "30.4", "CFTV", "30", "Telecomunicações")));
+        when(repo.findByActiveTrue()).thenReturn(List.of(
+                product("30.4.3.P0001", "30.4.3", "VIP 5232 SD IA G2", "Intelbras", "PARCIAL", sku("30.4.3.P0001.S0001", null, null, "1 un")),
+                product("8.2.3.P2001", "8.2.3", "Soleira Blanc", "Trento", "COMPLETA", sku("8.2.3.P2001.S0001", null, "7898523200011", "1 un"))));
+        var search = new CatalogProductSearchService(repo, cat, mock(CatalogSearchService.class));
+        assertThat(codes(search.search(request(null, null, null, null, null), 0, 10, null)))
+                .containsExactly("8.2.3.P2001", "30.4.3.P0001");
+        assertThat(codes(search.search(request("5232", null, null, null, null), 0, 10, null)))
+                .containsExactly("30.4.3.P0001", "8.2.3.P2001");
     }
 
     @Test void materialWithoutProductsIsListedAsTheMaterialItself() {
